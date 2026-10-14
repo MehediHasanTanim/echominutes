@@ -34,3 +34,6 @@ spikes/**/output/
 
 # Logs
 *.log
+
+# WhisperKit models downloaded by SpikeLab
+spikes/**/models/

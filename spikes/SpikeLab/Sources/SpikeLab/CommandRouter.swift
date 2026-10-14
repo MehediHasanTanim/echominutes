@@ -14,6 +14,7 @@ enum CommandRouter {
         Command(name: "tap-probe", summary: "Create + destroy a Core Audio process tap (checks the API & audio-capture usage string)", run: TapProbeCommand.run),
         Command(name: "processes", summary: "Live list of audio processes with mic/output state (EM-004). Options: --all --filter <text> --duration <sec>", run: ProcessesCommand.run),
         Command(name: "capture", summary: "Record an app's audio via process tap → WAV (EM-005). Options: --app <text> | --global, --duration <sec>", run: CaptureCommand.run),
+        Command(name: "transcribe", summary: "Local Whisper transcription + benchmark (EM-011/012). <files…> [--model base|small|large-v3-v20240930_turbo] [--lang en|bn] [--no-vad]", run: TranscribeCommand.run),
         Command(name: "all", summary: "Run info, mic and tap-probe (default)", run: { _ in await runAll() }),
         Command(name: "help", summary: "List commands", run: { _ in printHelp(); return 0 }),
     ]

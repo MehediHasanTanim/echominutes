@@ -40,3 +40,15 @@ tccutil reset AudioCapture com.tanimkabir.echominutes.spikelab   # System Audio 
 ## Verification (2026-10-14)
 
 `run.sh all` on macOS 26.6.2 / Xcode 27.0 → **ALL CHECKS PASSED**: bundle ID `com.tanimkabir.echominutes.spikelab`, team G26QS5R4FS, Hardened Runtime on, `audio-input` entitlement present, both usage strings present, microphone granted, process tap created (48 kHz, 2 ch, 32-bit float) and destroyed.
+
+## EM-007 — automated timeline collection (no manual test sessions)
+
+```bash
+spikes/SpikeLab/passive/install.sh      # background logger (launchd), starts at login
+# …use your Mac and meeting apps normally for a few days…
+python3 spikes/SpikeLab/passive/calls.py --out spikes/SpikeLab/output/passive/report.md
+spikes/SpikeLab/passive/uninstall.sh    # stop
+```
+
+Logs only mic/output on-off events per process (no audio). `calls.py` lists every mic session per app and suggests debounce/grace values.
+`scenario.sh` + `timeline.py` remain available for a targeted, step-by-step check of one app.

@@ -4,7 +4,7 @@ import Foundation
 
 /// EM-004 — Spike S1a: live list of Core Audio process objects with input/output state.
 ///
-/// Usage: run.sh processes [--all] [--filter <text>] [--duration <sec>]
+/// Usage: run.sh processes [--all] [--filter <text>] [--duration <sec>] [--quiet]
 ///   --all        table shows every audio process object, not only active ones
 ///   --filter     only show/log processes whose bundle ID, app or executable contains <text>
 ///   --duration   stop after N seconds (otherwise Ctrl+C in run.sh)
@@ -13,18 +13,19 @@ enum ProcessesCommand {
     private static var current: AudioProcessMonitor?   // keep the monitor alive while listening
 
     static func run(_ args: [String]) async -> Int32 {
-        var showAll = false, filter: String?, duration: Double?
+        var showAll = false, filter: String?, duration: Double?, quiet = false
         var i = 0
         while i < args.count {
             switch args[i] {
             case "--all": showAll = true
+            case "--quiet": quiet = true
             case "--filter": i += 1; filter = i < args.count ? args[i].lowercased() : nil
             case "--duration": i += 1; duration = i < args.count ? Double(args[i]) : nil
             default: Log.warn("Ignoring unknown option \(args[i])")
             }
             i += 1
         }
-        let monitor = AudioProcessMonitor(showAll: showAll, filter: filter)
+        let monitor = AudioProcessMonitor(showAll: showAll, filter: filter, quiet: quiet)
         current = monitor
         defer { current = nil }
         return await withCheckedContinuation { cont in
@@ -61,7 +62,8 @@ final class AudioProcessMonitor {
     private var onStop: ((Int32) -> Void)?
     private var signalSources: [DispatchSourceSignal] = []
 
-    init(showAll: Bool, filter: String?) { self.showAll = showAll; self.filter = filter }
+    private let quiet: Bool   // CSV only (background logging), no table/event console output
+    init(showAll: Bool, filter: String?, quiet: Bool = false) { self.showAll = showAll; self.filter = filter; self.quiet = quiet }
 
     func start(duration: Double?, onStop: @escaping (Int32) -> Void) {
         self.onStop = onStop
@@ -131,7 +133,7 @@ final class AudioProcessMonitor {
             let oldIn = p.input, oldOut = p.output
             p.input = newIn; p.output = newOut
             procs[id] = p
-            if source == "poll" { Log.warn("Change for pid \(p.pid) caught only by 1 s poll") }
+            if source == "poll" && !quiet { Log.warn("Change for pid \(p.pid) caught only by 1 s poll") }
             if newIn != oldIn { record((newIn ? "input_on_" : "input_off_") + source, p) }
             if newOut != oldOut { record((newOut ? "output_on_" : "output_off_") + source, p) }
             scheduleTable()
@@ -196,7 +198,7 @@ final class AudioProcessMonitor {
         let base = event.replacingOccurrences(of: "_poll", with: "").replacingOccurrences(of: "_device", with: "")
         let icons = ["input_on": "🎙▲", "input_off": "🎙▼", "output_on": "🔊▲", "output_off": "🔊▼", "process_added": "＋ "]
         let icon = icons[base] ?? "－ "
-        if !initial { Log.line("\(icon) \(event.padding(toLength: 15, withPad: " ", startingAt: 0)) pid \(p.pid)\(p.isSelf ? " (SpikeLab)" : "")  \(p.label)") }
+        if !initial && !quiet { Log.line("\(icon) \(event.padding(toLength: 15, withPad: " ", startingAt: 0)) pid \(p.pid)\(p.isSelf ? " (SpikeLab)" : "")  \(p.label)") }
         let now = Date()
         let iso = ISO8601DateFormatter.string(from: now, timeZone: .current, formatOptions: [.withInternetDateTime, .withFractionalSeconds])
         let row = [iso, String(Int(now.timeIntervalSince1970 * 1000)), initial ? "\(event)_initial" : event, String(p.pid),
@@ -212,6 +214,7 @@ final class AudioProcessMonitor {
     }
 
     private func printTable(reason: String) {
+        if quiet { return }
         let rows = procs.values
             .filter { matches($0) && (showAll || $0.input || $0.output) }
             .sorted { ($0.input ? 0 : 1, $0.appName, $0.pid) < ($1.input ? 0 : 1, $1.appName, $1.pid) }

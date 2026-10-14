@@ -16,7 +16,7 @@ public enum Log {
 /// Removes secrets (API keys, bearer tokens) from any text before it is logged or exported.
 public enum Redactor {
     // Ordered most specific first.
-    nonisolated(unsafe) private static let patterns: [(NSRegularExpression, String)] = [
+    private static let patterns: [(NSRegularExpression, String)] = [
         (#"sk-ant-[A-Za-z0-9_\-]{8,}"#, "sk-ant-…REDACTED"),
         (#"sk-(proj-)?[A-Za-z0-9_\-]{16,}"#, "sk-…REDACTED"),
         (#"AIza[0-9A-Za-z_\-]{30,}"#, "AIza…REDACTED"),

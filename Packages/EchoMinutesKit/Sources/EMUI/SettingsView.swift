@@ -8,7 +8,7 @@ public struct SettingsView: View {
     public var body: some View {
         TabView {
             GeneralSettingsView().tabItem { Label("General", systemImage: "gearshape") }
-            PlaceholderSettings(title: "Detection", detail: "Watched apps and Auto / Ask / Never per app — EM-075").tabItem { Label("Detection", systemImage: "dot.radiowaves.left.and.right") }
+            DetectionSettingsView().tabItem { Label("Detection", systemImage: "dot.radiowaves.left.and.right") }
             PlaceholderSettings(title: "Recording", detail: "Input device, quality, echo handling — Sprint 4").tabItem { Label("Recording", systemImage: "record.circle") }
             PlaceholderSettings(title: "Transcription", detail: "Local model, language, vocabulary — EM-087").tabItem { Label("Transcription", systemImage: "text.bubble") }
             PlaceholderSettings(title: "AI Summary", detail: "Provider, model, templates — Sprint 10").tabItem { Label("AI Summary", systemImage: "sparkles") }
@@ -16,7 +16,7 @@ public struct SettingsView: View {
             PlaceholderSettings(title: "Privacy & Storage", detail: "Retention, local-only apps, storage usage — EM-133").tabItem { Label("Privacy", systemImage: "lock.shield") }
             PlaceholderSettings(title: "Diagnostics", detail: "Permissions, audio test, log export — EM-132").tabItem { Label("Diagnostics", systemImage: "stethoscope") }
         }
-        .frame(width: 600, height: 380)
+        .frame(width: 640, height: 480)
     }
 }
 

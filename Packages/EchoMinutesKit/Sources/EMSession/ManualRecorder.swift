@@ -3,21 +3,38 @@ import EMCore
 import EMStorage
 import Foundation
 
-/// Manual Start / Pause / Stop / Discard recording of one app + mic (EM-055), plus crash recovery (EM-056).
-/// Sprint 5–6 put the automatic SessionCoordinator on top of the same building blocks.
+/// Start / Pause / Stop / Discard recording of one app + mic (EM-055), crash recovery (EM-056), and the
+/// candidate (pre-roll) phase used by automatic detection (EM-070).
 public actor ManualRecorder {
+    /// Who started the recording: the user (menu) or meeting detection. Detection only ever stops its own.
+    public enum Origin: String, Sendable, Equatable { case manual, auto }
+
     public struct Info: Sendable, Equatable {
         public let sessionID: SessionID
+        public let appID: String
         public let appName: String
         public let startedAt: Date
+        public let origin: Origin
+        public init(sessionID: SessionID, appID: String, appName: String, startedAt: Date, origin: Origin) {
+            self.sessionID = sessionID; self.appID = appID; self.appName = appName; self.startedAt = startedAt; self.origin = origin
+        }
     }
     public enum State: Sendable, Equatable {
         case idle
+        /// Capturing into the ring buffers only (nothing on disk yet, no session row).
+        case candidate(Info)
         case recording(Info)
         case paused(Info)
         case finalizing(Info)
         public var info: Info? {
-            switch self { case .idle: nil; case .recording(let i), .paused(let i), .finalizing(let i): i }
+            switch self {
+            case .idle: nil
+            case .candidate(let i), .recording(let i), .paused(let i), .finalizing(let i): i
+            }
+        }
+        /// Recording or paused (i.e. something Stop/Discard applies to).
+        public var isActive: Bool {
+            switch self { case .recording, .paused: true; default: false }
         }
     }
 
@@ -26,34 +43,78 @@ public actor ManualRecorder {
     private var capture: AggregateCapture?
     private var writer: ChunkWriter?
     private var session: Session?
+    private var preRoll: TimeInterval = 0
     public private(set) var state: State = .idle
 
     public init(paths: AppPaths, db: AppDatabase) { self.paths = paths; self.db = db }
 
+    /// Starts recording straight away (menu "Start Recording", or detection when no candidate capture exists).
     @discardableResult
-    public func start(app: DetectionRules.App, includeMic: Bool = true, now: Date = Date()) throws -> Session {
+    public func start(app: DetectionRules.App, includeMic: Bool = true, origin: Origin = .manual, now: Date = Date()) throws -> Session {
         guard case .idle = state else { throw EMError.invalidData("A recording is already in progress") }
+        let s = try openCapture(app: app, includeMic: includeMic, mode: .persisting, now: now)
+        do { try SessionRepository(db).insert(s) } catch { closeCapture(deleteFiles: true); throw error }
+        state = .recording(Info(sessionID: s.id, appID: app.id, appName: app.name, startedAt: now, origin: origin))
+        Log.info(.session, "Recording started (\(origin.rawValue)): \(s.id) \(app.name)")
+        return s
+    }
+
+    /// Detection saw the mic come on: capture into the rings, keeping the last `preRoll` seconds (EM-070).
+    public func startCandidate(app: DetectionRules.App, includeMic: Bool, preRoll: TimeInterval, now: Date = Date()) throws {
+        guard case .idle = state else { throw EMError.invalidData("A recording is already in progress") }
+        _ = try openCapture(app: app, includeMic: includeMic, mode: .candidate(preRollSeconds: preRoll), now: now)
+        self.preRoll = preRoll
+        state = .candidate(Info(sessionID: session!.id, appID: app.id, appName: app.name, startedAt: now, origin: .auto))
+        Log.info(.session, "Candidate capture: \(app.name) (pre-roll \(Int(preRoll)) s)")
+    }
+
+    /// Debounce passed: keep the pre-roll and everything after it.
+    @discardableResult
+    public func commitCandidate(now: Date = Date()) throws -> Session {
+        guard case .candidate(let info) = state, var s = session, let writer else { throw EMError.notFound("candidate capture") }
+        // The rings hold at most `preRoll` seconds, so the audio starts no earlier than now − preRoll.
+        let audioStart = max(info.startedAt, now.addingTimeInterval(-preRoll))
+        writer.setMode(.persisting)
+        s.startedAt = audioStart
+        do { try SessionRepository(db).insert(s) } catch { closeCapture(deleteFiles: true); throw error }
+        session = s
+        state = .recording(Info(sessionID: s.id, appID: info.appID, appName: info.appName, startedAt: audioStart, origin: .auto))
+        Log.info(.session, "Recording started (auto): \(s.id) \(info.appName), pre-roll from \(audioStart)")
+        return s
+    }
+
+    /// Debounce failed (voice note, declined ask…): stop capture and delete the empty session folder.
+    public func cancelCandidate() {
+        guard case .candidate(let info) = state else { return }
+        closeCapture(deleteFiles: true)
+        Log.info(.session, "Candidate cancelled: \(info.appName)")
+    }
+
+    private func openCapture(app: DetectionRules.App, includeMic: Bool, mode: ChunkWriter.Mode, now: Date) throws -> Session {
         let procs = AudioProcesses.resolve(app, in: AudioProcesses.current())
         guard !procs.isEmpty else { throw AudioCaptureError.noTargetProcesses(app.name) }
-
         let s = Session(title: "\(app.name) call", sourceAppID: app.id, sourceBundleID: procs.first?.bundleID,
                         startedAt: now, status: .recording, now: now)
         let dir = try paths.createSessionDirectories(s.id)
         let cap = AggregateCapture(processObjectIDs: procs.map(\.objectID), includeMic: includeMic)
         do {
             try cap.start()
-            let w = try ChunkWriter(source: cap, sessionDirectory: dir, startedAt: now, mode: .persisting)
+            let w = try ChunkWriter(source: cap, sessionDirectory: dir, startedAt: now, mode: mode)
             w.start()
-            try SessionRepository(db).insert(s)
             capture = cap; writer = w; session = s
         } catch {
             cap.stop()
             try? paths.deleteSession(s.id)
             throw error
         }
-        state = .recording(Info(sessionID: s.id, appName: app.name, startedAt: now))
-        Log.info(.session, "Manual recording started: \(s.id) \(app.name)")
         return s
+    }
+
+    private func closeCapture(deleteFiles: Bool) {
+        writer?.finish(); capture?.stop()
+        if deleteFiles, let id = session?.id { try? paths.deleteSession(id) }
+        writer = nil; capture = nil; session = nil; preRoll = 0
+        state = .idle
     }
 
     public func pause() throws {
@@ -73,26 +134,27 @@ public actor ManualRecorder {
     /// Stops capture, finalizes audio and marks the session ready.
     @discardableResult
     public func stop(now: Date = Date()) async throws -> Session {
-        guard let info = state.info, var s = session, let writer, let capture else { throw EMError.notFound("active recording") }
+        guard state.isActive, let info = state.info, var s = session, let writer, let capture else { throw EMError.notFound("active recording") }
         state = .finalizing(info)
         writer.finish()
         capture.stop()
-        self.writer = nil; self.capture = nil
+        self.writer = nil; self.capture = nil; preRoll = 0
+        defer { state = .idle; session = nil }
         s.endedAt = now
         s.status = .finalizing
         try SessionRepository(db).update(s)
-        defer { state = .idle; session = nil }
         return try await Self.finalize(s, paths: paths, db: db)
     }
 
     /// Stops and deletes everything of the current recording.
     public func discard() throws {
         guard let info = state.info else { return }
+        if case .candidate = state { cancelCandidate(); return }
         writer?.finish(); capture?.stop()
-        writer = nil; capture = nil; session = nil
+        writer = nil; capture = nil; session = nil; preRoll = 0
+        state = .idle
         try SessionRepository(db).delete(info.sessionID)
         try paths.deleteSession(info.sessionID)
-        state = .idle
         Log.info(.session, "Recording discarded: \(info.sessionID)")
     }
 

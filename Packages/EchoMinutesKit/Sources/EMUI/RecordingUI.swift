@@ -25,6 +25,8 @@ extension AppState {
         if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
             _ = await AVCaptureDevice.requestAccess(for: .audio)
         }
+        // A detection candidate holds the capture; the user's explicit Start wins.
+        if case .candidate = await recorder.state { await recorder.cancelCandidate() }
         do {
             try await recorder.start(app: app, includeMic: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized)
             await syncRecordingState()
@@ -37,6 +39,12 @@ extension AppState {
 
     public func stopRecording() async {
         guard let recorder else { return }
+        // Auto recordings stop through detection, so the same call isn't immediately re-detected.
+        if recording.info?.origin == .auto, case .recording = detectionPhase, let coordinator {
+            await coordinator.manualStop()
+            await syncRecordingState()
+            return
+        }
         let task = Task { try await recorder.stop() }
         await syncRecordingState()                      // shows "Saving…" while finalizing
         do {
@@ -48,6 +56,11 @@ extension AppState {
     }
 
     public func discardRecording() async {
+        if recording.info?.origin == .auto, case .recording = detectionPhase, let coordinator {
+            await coordinator.manualDiscard()
+            await syncRecordingState()
+            return
+        }
         do { try await recorder?.discard() } catch { lastError = error.localizedDescription }
         await syncRecordingState()
         reloadSessions()
@@ -61,13 +74,16 @@ extension AppState {
     }
 
     public func syncRecordingState() async {
-        recording = await recorder?.state ?? .idle
-        switch recording {
-        case .idle: status = .idle
-        case .recording(let i): status = .recording(appName: i.appName, since: i.startedAt)
-        case .paused(let i): status = .processing("Paused — \(i.appName)")
-        case .finalizing: status = .processing("Saving recording…")
+        let r = await recorder?.state ?? .idle
+        if r != recording { recording = r }
+        let newStatus: AppStatus
+        switch r {
+        case .idle, .candidate: newStatus = detectionRunning ? .monitoring : .idle
+        case .recording(let i): newStatus = .recording(appName: i.appName, since: i.startedAt)
+        case .paused(let i): newStatus = .processing("Paused — \(i.appName)")
+        case .finalizing: newStatus = .processing("Saving recording…")
         }
+        if newStatus != status { status = newStatus }
     }
 }
 
@@ -77,8 +93,15 @@ struct RecordingMenuSection: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
+        if let app = state.askingAppName {
+            Text("Record this \(app) call?")
+            Button("Record") { Task { await state.respondToAsk(accept: true) } }
+            Button("Ignore") { Task { await state.respondToAsk(accept: false) } }
+            Divider()
+        }
         switch state.recording {
-        case .idle:
+        case .idle, .candidate:
+            if case .candidate(let i) = state.recording { Text("Detecting \(i.appName) call…") }
             Menu("Start Recording") {
                 let apps = state.recordableApps()
                 if apps.isEmpty { Text("No meeting app is running") }
@@ -87,7 +110,7 @@ struct RecordingMenuSection: View {
                 }
             }
         case .recording(let i):
-            Text("● Recording \(i.appName) — \(elapsed(i.startedAt))")
+            Text("● Recording \(i.appName) — \(elapsed(i.startedAt))\(i.origin == .auto ? " (auto)" : "")")
             Button("Pause") { Task { await state.pauseRecording() } }
             Button("Stop & Save") { Task { await state.stopRecording() } }.keyboardShortcut("s")
             Button("Discard Recording", role: .destructive) { Task { await state.discardRecording() } }
@@ -99,6 +122,9 @@ struct RecordingMenuSection: View {
         case .finalizing:
             Text("Saving recording…")
         }
+        Toggle("Auto-record Meetings", isOn: Binding(
+            get: { state.detectionRunning },
+            set: { on in Task { await state.setDetectionEnabled(on) } }))
         if let e = state.lastError { Text("⚠︎ \(e)") }
     }
 

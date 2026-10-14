@@ -60,9 +60,37 @@ public struct MenuContentView: View {
     }
 }
 
-/// Menu bar icon reflecting the app status.
+/// Menu bar icon reflecting the app status (EM-072): idle (outline), watching (filled), recording (red dot +
+/// elapsed time), processing (hourglass). Also opens the Library on request, since this label is always alive.
 public struct MenuBarIcon: View {
     @Environment(AppState.self) private var state
+    @Environment(\.openWindow) private var openWindow
     public init() {}
-    public var body: some View { Image(systemName: state.status.symbolName) }
+
+    public var body: some View {
+        Group {
+            if case .recording(_, let since) = state.status {
+                HStack(spacing: 4) {
+                    Image(nsImage: Self.redDot)
+                    Text(since, style: .timer).monospacedDigit()
+                }
+            } else {
+                Image(systemName: state.status.symbolName)
+            }
+        }
+        .onChange(of: state.libraryOpenRequest) {
+            openWindow(id: LibraryView.windowID)
+            NSApp.activate()
+        }
+    }
+
+    /// Non-template image so the menu bar keeps it red.
+    @MainActor static let redDot: NSImage = {
+        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+            .applying(.init(paletteColors: [.systemRed]))
+        let img = NSImage(systemSymbolName: "record.circle.fill", accessibilityDescription: "Recording")?
+            .withSymbolConfiguration(config) ?? NSImage()
+        img.isTemplate = false
+        return img
+    }()
 }

@@ -1,4 +1,5 @@
 import EMCore
+import EMDetection
 import EMSession
 import EMStorage
 import Foundation
@@ -45,6 +46,18 @@ public final class AppState {
     public let recorder: ManualRecorder?
     public let rules: DetectionRules?
 
+    // Automatic detection (EM-070…076)
+    public internal(set) var detectionPhase: MeetingStateMachine.Phase = .idle
+    public internal(set) var detectionRunning = false
+    /// Bumped to ask the always-present menu bar label to open the Library window (e.g. from a notification).
+    public var libraryOpenRequest = 0
+    @ObservationIgnored var coordinator: DetectionCoordinator?
+    @ObservationIgnored var autoHandler: AutoRecordingHandler?
+    @ObservationIgnored var activityMonitor: AudioActivityMonitor?
+    @ObservationIgnored var sleepWatcher: SystemEventsWatcher?
+    @ObservationIgnored var detectionTasks: [Task<Void, Never>] = []
+    public let notifier = Notifier()
+
     public init(paths: AppPaths?, database: AppDatabase?, startupError: String? = nil, rules: DetectionRules? = DetectionRules.bundled()) {
         self.paths = paths
         self.database = database
@@ -65,7 +78,10 @@ public final class AppState {
             let paths = try AppPaths.default()
             let db = try AppDatabase.onDisk(paths)
             Log.info(.app, "Storage ready at \(paths.root.path)")
-            return AppState(paths: paths, database: db)
+            let state = AppState(paths: paths, database: db)
+            state.notifier.setup(state: state)
+            state.startDetection()
+            return state
         } catch {
             Log.error(.app, "Storage failed to open: \(error)")
             return AppState(paths: nil, database: nil, startupError: "Couldn't open the EchoMinutes library: \(error.localizedDescription)")

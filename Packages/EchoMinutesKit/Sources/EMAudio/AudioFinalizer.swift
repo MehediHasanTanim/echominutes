@@ -98,12 +98,10 @@ public enum AudioFinalizer {
         var peaks: [UInt8] = []
         let window = Int(rate * waveformWindowSeconds)
         var windowPeak: Float = 0, windowFill = 0
-        while true {
-            try sysIn.read(into: sysBuf, frameCount: AVAudioFrameCount(block))
+        while try readBlock(sysIn, into: sysBuf, max: block) {
             let n = Int(sysBuf.frameLength)
-            if n == 0 { break }
             var micN = 0
-            if let micIn { try micIn.read(into: micBuf, frameCount: AVAudioFrameCount(n)); micN = Int(micBuf.frameLength) }
+            if let micIn, try readBlock(micIn, into: micBuf, max: n) { micN = Int(micBuf.frameLength) }
             outBuf.frameLength = AVAudioFrameCount(n)
             let s = sysBuf.floatChannelData![0], m = micBuf.floatChannelData![0], out = outBuf.floatChannelData![0]
             for k in 0..<n {
@@ -127,11 +125,17 @@ public enum AudioFinalizer {
     private static func forEachBlock(_ url: URL, format: AVAudioFormat, _ body: (UnsafePointer<Float>, Int) -> Void) throws {
         let f = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
         let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(block))!
-        while true {
-            try f.read(into: buf, frameCount: AVAudioFrameCount(block))
-            if buf.frameLength == 0 { break }
+        while try readBlock(f, into: buf, max: block) {
             body(buf.floatChannelData![0], Int(buf.frameLength))
         }
+    }
+
+    /// Reads up to `max` frames; false at end of file. (AVAudioFile throws instead of returning 0 frames at EOF.)
+    private static func readBlock(_ f: AVAudioFile, into buf: AVAudioPCMBuffer, max: Int) throws -> Bool {
+        let remaining = f.length - f.framePosition
+        guard remaining > 0 else { buf.frameLength = 0; return false }
+        try f.read(into: buf, frameCount: AVAudioFrameCount(min(Int64(max), remaining)))
+        return buf.frameLength > 0
     }
 
     private static func writer(_ dir: URL, _ name: String) throws -> AVAudioFile {

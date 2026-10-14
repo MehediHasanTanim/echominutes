@@ -1,5 +1,6 @@
 import AppKit
 import EMAudio
+import EMCore
 import SwiftUI
 
 /// Floating recording widget (EM-073): elapsed time, mic + call meters, bookmark, stop. A non-activating
@@ -7,6 +8,9 @@ import SwiftUI
 @MainActor
 final class MiniWidgetController {
     private var panel: NSPanel?
+    private static let autosaveName = "EchoMinutesMiniWidget.v2"     // v2: ignore the frame saved by the first build
+
+    var isVisible: Bool { panel != nil }
 
     func show(state: AppState) {
         if let panel { panel.orderFrontRegardless(); return }
@@ -24,16 +28,22 @@ final class MiniWidgetController {
         p.standardWindowButton(.miniaturizeButton)?.isHidden = true
         p.standardWindowButton(.zoomButton)?.isHidden = true
         p.contentView = NSHostingView(rootView: MiniWidgetView().environment(state))
-        p.setFrameAutosaveName("EchoMinutesMiniWidget")
-        if !p.setFrameUsingName("EchoMinutesMiniWidget"), let screen = NSScreen.main {
-            let f = screen.visibleFrame
-            p.setFrameOrigin(NSPoint(x: f.maxX - 320, y: f.maxY - 90))
+        // Restore the saved position only if it is fully on a screen's visible area (not under the Dock/menu bar
+        // or on a disconnected display); otherwise start at the top-right of the main screen.
+        // Note: restore BEFORE setting the autosave name — setting the name first saves the initial (0,0) frame.
+        let restored = p.setFrameUsingName(Self.autosaveName)
+        if !restored || !NSScreen.screens.contains(where: { $0.visibleFrame.contains(p.frame) }) {
+            let f = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            p.setFrameOrigin(NSPoint(x: f.maxX - p.frame.width - 20, y: f.maxY - p.frame.height - 20))
         }
+        p.setFrameAutosaveName(Self.autosaveName)
         p.orderFrontRegardless()
         panel = p
+        Log.info(.ui, "Mini widget shown at \(NSStringFromRect(p.frame))")
     }
 
     func hide() {
+        if panel != nil { Log.info(.ui, "Mini widget hidden") }
         panel?.orderOut(nil)
         panel = nil
     }

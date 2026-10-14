@@ -67,7 +67,8 @@ extension AppState {
     }
 
     public func toggleMiniWidget() {
-        let on = !MiniWidgetPreferences.enabled
+        // While recording, toggle what's on screen; otherwise toggle the preference for future recordings.
+        let on = recording.isActive ? !miniWidget.isVisible : !MiniWidgetPreferences.enabled
         UserDefaults.standard.set(on, forKey: MiniWidgetPreferences.enabledKey)
         if on, recording.isActive { miniWidget.show(state: self) } else { miniWidget.hide() }
     }

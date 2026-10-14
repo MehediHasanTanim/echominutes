@@ -113,6 +113,8 @@ struct RecordingMenuSection: View {
         case .recording(let i):
             Text("● Recording \(i.appName) — \(elapsed(i.startedAt))\(i.origin == .auto ? " (auto)" : "")")
             Button("Pause") { Task { await state.pauseRecording() } }
+            Button("Add Bookmark") { Task { await state.addBookmark() } }
+            Button("Show / Hide Mini Widget") { state.toggleMiniWidget() }
             Button("Stop & Save") { Task { await state.stopRecording() } }.keyboardShortcut("s")
             Button("Discard Recording", role: .destructive) { Task { await state.discardRecording() } }
         case .paused(let i):

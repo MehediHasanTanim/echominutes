@@ -13,7 +13,7 @@ if ! xcodebuild -project EchoMinutes.xcodeproj -scheme EchoMinutes -configuratio
   echo "✘ Build failed — full log: build/xcodebuild.log"; exit 1
 fi
 APP="build/DerivedData/Build/Products/$CONFIG/EchoMinutes.app"
-WARN=$(grep -cE "warning:" build/xcodebuild.log || true)
+WARN=$(grep -E "warning:" build/xcodebuild.log | grep -vc "appintentsmetadataprocessor" || true)
 echo "✔ Built $APP ($WARN warnings)"
 
 echo "▶ Verifying bundle"

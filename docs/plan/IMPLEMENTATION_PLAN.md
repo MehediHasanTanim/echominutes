@@ -115,7 +115,7 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-020 | Xcode project | `EchoMinutes` app target, bundle ID `com.tanimkabir.echominutes`, `LSUIElement=YES`, Hardened Runtime, entitlements (`audio-input`), Info.plist usage strings, Swift 6 strict concurrency | 2 | S0 |
+| EM-020 ✅ | Xcode project | `EchoMinutes` app target, bundle ID `com.tanimkabir.echominutes`, `LSUIElement=YES`, Hardened Runtime, entitlements (`audio-input`), Info.plist usage strings, Swift 6 strict concurrency | 2 | S0 |
 | EM-021 | Local Swift packages | Create `EMCore, EMDetection, EMAudio, EMSession, EMStorage, EMTranscription, EMSummarization, EMJobs, EMExport, EMUI` with test targets; wire into app | 2 | EM-020 |
 | EM-022 | EMCore models | `SessionID`, `Session`, `SessionStatus`, `TrackKind`, `Speaker`, `TranscriptSegment`, `Summary`, `ActionItem`, `Bookmark`, `AppRule`, `ProviderID`, error types, injectable `Clock` | 3 | EM-021 |
 | EM-023 | Database & migration v1 | GRDB `DatabasePool`, WAL, migration v1 = full schema from Tech Design §11.2 incl. `search_fts` | 3 | EM-022 |

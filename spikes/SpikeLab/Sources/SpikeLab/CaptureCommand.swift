@@ -80,6 +80,7 @@ final class ProcessTapRecorder {
     private var micURL: URL?
     private var micPeakSec: Float = 0, micOverallPeak: Float = 0, micSecondsWithSignal = 0
     private var loggedLayout = false
+    private var lastAggRate: Double = 0
 
     init(needle: String?, global: Bool, withMic: Bool = false) { self.needle = needle; self.global = global; self.withMic = withMic }
 
@@ -303,6 +304,12 @@ final class ProcessTapRecorder {
                                  : "\(cb) IO callbacks, \(empty) empty, 0 audio frames — target app is not producing audio")
             }
             self.checkTargetProcesses()
+            let rate = CA.nominalRate(self.aggregateID)
+            if self.lastAggRate == 0 { self.lastAggRate = rate }
+            else if rate != self.lastAggRate {
+                Log.warn("Aggregate sample rate changed \(Int(self.lastAggRate)) → \(Int(rate)) Hz (e.g. Bluetooth headset switched to call/HFP mode). WAV headers still say \(Int(self.format?.sampleRate ?? 0)) Hz — production must re-read the format and resample.")
+                self.lastAggRate = rate
+            }
             self.lastCallbacks = self.callbacks; self.lastEmpty = self.emptyCallbacks; self.lastFrames = self.framesWritten
             self.heartbeat()
         }

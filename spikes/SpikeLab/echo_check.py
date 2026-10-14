@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """EM-015 / EM-016 — check alignment & echo between a dual-track capture (…-mic.wav, …-system.wav).
 
-Usage: echo_check.py <capture-…-mic.wav> [<capture-…-system.wav>]   (numpy only)
+Usage: echo_check.py <capture-…-mic.wav> [<capture-…-system.wav>] [--rate=16000]   (numpy only)
 Reports: durations (alignment), echo delay (mic vs system cross-correlation),
 leakage level (how loud the remote side appears in the mic track), and a verdict.
 """
@@ -30,9 +30,12 @@ def read_wav(path):
 def db(x): return 20 * np.log10(max(x, 1e-9))
 
 def main():
-    mic_p = sys.argv[1]
-    sys_p = sys.argv[2] if len(sys.argv) > 2 else mic_p.replace("-mic.wav", "-system.wav")
+    args = [a for a in sys.argv[1:] if not a.startswith("--rate")]
+    override = next((int(a.split("=")[1]) for a in sys.argv[1:] if a.startswith("--rate=")), None)
+    mic_p = args[0]
+    sys_p = args[1] if len(args) > 1 else mic_p.replace("-mic.wav", "-system.wav")
     mic, r1 = read_wav(mic_p); sysa, r2 = read_wav(sys_p)
+    if override: r1 = r2 = override   # e.g. --rate=16000 when the header is wrong (Bluetooth HFP)
     assert r1 == r2, f"rate mismatch {r1} vs {r2}"
     rate = r1
     print(f"mic    {len(mic)/rate:7.2f} s  rms {db(np.sqrt(np.mean(mic**2))):6.1f} dBFS  peak {db(np.abs(mic).max()):6.1f}")

@@ -100,8 +100,8 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-012 | Spike S3b: benchmark | Measure real-time factor, peak RAM, first-load (Core ML specialization) time; subjective quality EN/BN/mixed; with and without VAD | 4 | EM-010, EM-011 |
 | EM-013 | Spike S3c: cloud comparison | Run same clips through one cloud STT (e.g., OpenAI transcription) for a quality baseline, esp. Bengali | 2 | EM-010 |
 | EM-014 | Spike S4: diarization | Try FluidAudio (Core ML diarization) on the 3-person system-track clip; measure speaker-turn accuracy (target ≥ 80%); note an alternative if it fails | 5 | EM-010 |
-| EM-015 | Spike S5: echo on speakers | Transcribe mic + system tracks of the speaker recording; prototype text-similarity + RMS de-dup; measure duplicate rate (target < 5%) | 4 | EM-012 |
-| EM-016 | Aggregate-device question | Quick test: mic + tap in **one** aggregate device vs separate AVAudioEngine; decide (Tech Design §21 Q1) | 2 | EM-005 |
+| EM-015 ✅ | Spike S5: echo on speakers | Transcribe mic + system tracks of the speaker recording; prototype text-similarity + RMS de-dup; measure duplicate rate (target < 5%) | 4 | EM-012 |
+| EM-016 ✅ | Aggregate-device question | Quick test: mic + tap in **one** aggregate device vs separate AVAudioEngine; decide (Tech Design §21 Q1) | 2 | EM-005 |
 | EM-017 | Update technical design | Record decisions (default model, diarizer, echo approach, aggregate choice) in `TECHNICAL_DESIGN.md` §2/§21; changelog | 1 | all above |
 | | **Sprint total** | | **23** | |
 

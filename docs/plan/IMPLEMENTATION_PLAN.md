@@ -123,9 +123,9 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-025 ✅ | FileStore | App Support paths, per-session folder create/delete, `0700` perms, free-space query helper | 2 | EM-021 |
 | EM-026 ✅ | KeychainStore | set/get/delete per `ProviderID`, `WhenUnlockedThisDeviceOnly`; unit tests (keychain test service name) | 2 | EM-022 |
 | EM-027 ✅ | Logging | `Log` facade over `os.Logger` with categories; secret-redaction helper + test | 1 | EM-021 |
-| EM-028 | Menu bar shell | `MenuBarExtra` with status text, Open Library, Settings, Quit; `AppState` (@Observable) | 2 | EM-020 |
-| EM-029 | Main window & Settings shell | `NavigationSplitView` with empty list; `Settings` scene with all tabs as placeholders | 2 | EM-028 |
-| EM-030 | Launch at login | `SMAppService.mainApp` toggle in General settings | 1 | EM-029 |
+| EM-028 ✅ | Menu bar shell | `MenuBarExtra` with status text, Open Library, Settings, Quit; `AppState` (@Observable) | 2 | EM-020 |
+| EM-029 ✅ | Main window & Settings shell | `NavigationSplitView` with empty list; `Settings` scene with all tabs as placeholders | 2 | EM-028 |
+| EM-030 ✅ | Launch at login | `SMAppService.mainApp` toggle in General settings | 1 | EM-029 |
 | | **Sprint total** | | **24** | |
 
 **Demo:** app launches to menu bar, opens empty library and settings; DB file created; tests green.

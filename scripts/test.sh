@@ -7,8 +7,8 @@ mkdir -p build
 ARGS=(--package-path Packages/EchoMinutesKit)
 [[ -n "${1:-}" ]] && ARGS+=(--filter "$1")
 if swift test "${ARGS[@]}" > build/swift-test.log 2>&1; then
-  grep -E "Test run with|passed after|✔" build/swift-test.log | tail -5
-  echo "✔ Tests passed (log: build/swift-test.log)"
+  N=$(grep -cE "✔ Test .* passed" build/swift-test.log || true)
+  echo "✔ $N tests passed (log: build/swift-test.log)"
 else
   grep -E "error:|✘|failed|issue" build/swift-test.log | head -40
   echo "✘ Tests failed (log: build/swift-test.log)"; exit 1

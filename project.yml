@@ -25,11 +25,15 @@ targets:
     platform: macOS
     sources:
       - App
+      - path: Resources
+        buildPhase: resources
     dependencies:
       - package: EchoMinutesKit
         product: EMCore
       - package: EchoMinutesKit
         product: EMUI
+      - package: EchoMinutesKit
+        product: EMAudio
       - package: EchoMinutesKit
         product: EMSession
       - package: EchoMinutesKit

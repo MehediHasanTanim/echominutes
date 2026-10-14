@@ -22,6 +22,11 @@ struct EchoMinutesApp: App {
         }
         .defaultSize(width: 1000, height: 640)
 
+        Window("Capture Test", id: DebugCaptureView.windowID) {
+            DebugCaptureView()
+        }
+        .windowResizability(.contentSize)
+
         Settings {
             SettingsView().environment(state)
         }

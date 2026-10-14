@@ -32,6 +32,12 @@ public struct MenuContentView: View {
             Divider()
         }
 
+        #if DEBUG
+        Button("Debug: Capture Test…") {
+            openWindow(id: DebugCaptureView.windowID)
+            NSApp.activate()
+        }
+        #endif
         Button("Open Library…") { showLibrary() }
             .keyboardShortcut("l")
         Button("Settings…") {

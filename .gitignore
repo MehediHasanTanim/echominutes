@@ -37,3 +37,7 @@ spikes/**/output/
 
 # WhisperKit models downloaded by SpikeLab
 spikes/**/models/
+
+# Generated Xcode project (from project.yml via XcodeGen)
+EchoMinutes.xcodeproj/
+/build/

@@ -1,0 +1,58 @@
+# EchoMinutes — Xcode project definition (XcodeGen). Generate with: scripts/bootstrap.sh
+# The .xcodeproj is generated and git-ignored; edit THIS file, not the project.
+name: EchoMinutes
+options:
+  bundleIdPrefix: com.tanimkabir
+  deploymentTarget:
+    macOS: "14.4"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"            # Swift 6 language mode → complete strict concurrency
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MACOSX_DEPLOYMENT_TARGET: "14.4"
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+targets:
+  EchoMinutes:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: EchoMinutes
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        NSMicrophoneUsageDescription: EchoMinutes records your voice during meetings you attend.
+        NSAudioCaptureUsageDescription: EchoMinutes records the audio of your meeting apps so remote participants appear in your transcript.
+        NSHumanReadableCopyright: © 2026 Tanim Kabir
+    entitlements:
+      path: App/EchoMinutes.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tanimkabir.echominutes
+        PRODUCT_NAME: EchoMinutes
+        ENABLE_HARDENED_RUNTIME: YES
+        ENABLE_APP_SANDBOX: NO
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: App/EchoMinutes.entitlements
+        COMBINE_HIDPI_IMAGES: YES
+schemes:
+  EchoMinutes:
+    build:
+      targets:
+        EchoMinutes: all
+    run:
+      config: Debug
+    archive:
+      config: Release

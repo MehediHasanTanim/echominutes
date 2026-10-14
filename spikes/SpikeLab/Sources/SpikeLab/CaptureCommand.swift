@@ -64,6 +64,9 @@ final class ProcessTapRecorder {
     private var secondsTotal = 0
     private var secondsWithSignal = 0
     private var writeErrors = 0
+    private var callbacks = 0          // IOProc invocations (total)
+    private var emptyCallbacks = 0     // invocations that carried 0 bytes
+    private var lastCallbacks = 0, lastEmpty = 0, lastFrames: Int64 = 0
 
     init(needle: String?, global: Bool) { self.needle = needle; self.global = global }
 
@@ -86,6 +89,7 @@ final class ProcessTapRecorder {
             if let duration {
                 self.queue.asyncAfter(deadline: .now() + duration) { self.stop(reason: "duration elapsed") }
             }
+            self.heartbeat()
         }
     }
 
@@ -170,6 +174,7 @@ final class ProcessTapRecorder {
     // MARK: - Audio
 
     private func handle(_ abl: UnsafePointer<AudioBufferList>) {
+        callbacks += 1
         guard let format, let file else { return }
         // Peak across all float samples (format-agnostic for Float32)
         var peak: Float = 0
@@ -181,6 +186,7 @@ final class ProcessTapRecorder {
             for k in 0..<n { peak = max(peak, abs(p[k])) }
             frames = Int64(buf.mDataByteSize) / Int64(format.streamDescription.pointee.mBytesPerFrame)
         }
+        if frames == 0 { emptyCallbacks += 1 }
         guard frames > 0, let pcm = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: abl, deallocator: nil) else { return }
         do { try file.write(from: pcm) } catch { writeErrors += 1 }
         framesWritten += frames
@@ -197,6 +203,21 @@ final class ProcessTapRecorder {
         }
     }
 
+    /// Every 2 s: if no audio frames arrived, say whether the IOProc is running at all.
+    private func heartbeat() {
+        queue.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self, self.onStop != nil else { return }
+            let cb = self.callbacks - self.lastCallbacks, empty = self.emptyCallbacks - self.lastEmpty
+            let fr = self.framesWritten - self.lastFrames
+            if fr == 0 {
+                Log.warn(cb == 0 ? "No IO callbacks in last 2 s — aggregate device not running"
+                                 : "\(cb) IO callbacks, \(empty) empty, 0 audio frames — target app is not producing audio")
+            }
+            self.lastCallbacks = self.callbacks; self.lastEmpty = self.emptyCallbacks; self.lastFrames = self.framesWritten
+            self.heartbeat()
+        }
+    }
+
     private func dBFS(_ x: Float) -> Float { x > 0 ? 20 * log10(x) : -120 }
 
     // MARK: - Stop
@@ -209,6 +230,7 @@ final class ProcessTapRecorder {
         Log.line("Stopped: \(reason)")
         Log.line(String(format: "Recorded %.1f s, overall peak %.1f dBFS, %d of %d seconds had signal (> -60 dBFS)",
                         secs, dBFS(overallPeak), secondsWithSignal, secondsTotal))
+        Log.line("IO callbacks: \(callbacks) (\(emptyCallbacks) empty)")
         if writeErrors > 0 { Log.warn("\(writeErrors) buffer write errors") }
         if let fileURL { Log.line("WAV: \(fileURL.path)") }
         if secondsTotal > 0 && secondsWithSignal == 0 {

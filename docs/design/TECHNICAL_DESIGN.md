@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Product | EchoMinutes (personal macOS utility) |
-| Document | Technical design v0.1 |
+| Document | Technical design v0.2 |
 | Companion | [FEATURE_SPEC.md](FEATURE_SPEC.md) v0.2 — requirement IDs (FR-xxx) refer to it |
 | Owner | Tanim Kabir |
-| Date | 2026-10-13 |
+| Date | 2026-10-14 |
 | Status | Draft |
 
 ---
@@ -31,7 +31,7 @@ Design principles:
 |---|---|---|---|
 | TD-1 | Native **Swift 6 + SwiftUI** (AppKit where needed), min **macOS 14.4** | Process taps & audio process-object APIs require 14.2/14.4; best performance & battery | Electron/Tauri (no access to Core Audio process taps without native bridge) |
 | TD-2 | **Core Audio Process Taps** for remote-participant audio | Per-app capture, no virtual driver, excludes other apps' sound | BlackHole/Loopback (driver install), ScreenCaptureKit (kept as fallback only) |
-| TD-3 | Detection driven by **Core Audio process objects** (`kAudioProcessPropertyIsRunningInput`) | Tells exactly which app is using the mic; event-driven, ~0 CPU | Polling `lsof`/IOKit, window-title scraping only |
+| TD-3 | Detection driven by **Core Audio process objects**: process-list listener + **1 s poll** of `kAudioProcessPropertyIsRunningInput/Output` | Tells exactly which app is using the mic. *Spike EM-004: per-process state listeners never fire on macOS 26.6 — polling ~36 objects/s is negligible CPU and the 5 s debounce hides the ≤1 s latency* | Per-process listeners only (unreliable), `lsof`/IOKit, window titles |
 | TD-4 | **Start capture at "candidate" stage** (during debounce) into a ring buffer | Gives pre-roll for free — first words are not lost | Start only after debounce (loses 5 s) |
 | TD-5 | **WhisperKit** (Core ML) for local STT; **download model on first use** (default large-v3-turbo, smaller optional) | Fast on Apple Silicon/ANE; built-in model download; keeps app ~20 MB | Bundling model (1.5 GB app, slow updates); whisper.cpp (good fallback) |
 | TD-6 | **Two separate tracks** (mic + system) transcribed independently | "Me" vs "Others" attribution with no ML; simpler diarization | Single mixed track + full diarization |
@@ -175,8 +175,8 @@ Swift 6 strict concurrency is enabled. Core Audio C types are wrapped in small `
 | Signal | API | Use |
 |---|---|---|
 | Running apps | `NSWorkspace.didLaunchApplicationNotification` / `didTerminate…` | Know which watched apps are alive |
-| **Process using mic** | `kAudioHardwarePropertyProcessObjectList` + per-process `kAudioProcessPropertyIsRunningInput`, `kAudioProcessPropertyBundleID`, `kAudioProcessPropertyPID` | **Primary trigger** |
-| Process producing audio | `kAudioProcessPropertyIsRunningOutput` | Secondary signal; used in end-of-meeting rule |
+| **Process using mic** | `kAudioHardwarePropertyProcessObjectList` (listener ✔) + per-process `kAudioProcessPropertyIsRunningInput` (**polled every 1 s** — listeners don't fire), `kAudioProcessPropertyBundleID`, `kAudioProcessPropertyPID` | **Primary trigger** |
+| Process producing audio | `kAudioProcessPropertyIsRunningOutput` (polled) | Secondary only — helpers keep output on after calls (Teams) and browsers hold output after pause; never a start signal |
 | Any mic in use (fallback) | `kAudioDevicePropertyDeviceIsRunningSomewhere` on input devices | Fallback if process list unavailable |
 | Browser tab/window titles | ScreenCaptureKit `SCShareableContent.windows` titles (needs Screen Recording) or AX API | Browser meeting matching (Phase 2) |
 | Calendar event | EventKit | Titles/attendees (Phase 2) |
@@ -208,7 +208,11 @@ Meeting apps often do audio in **helper processes** (e.g., `com.microsoft.teams2
 }
 ```
 
-> Bundle IDs and helper behaviour must be verified in spike S2 and kept up to date in this file.
+> Verified in spikes EM-004…006 (see `docs/spikes/S1-S2.md`, draft rules in `Resources/DetectionRules.json`):
+> - **Teams** `com.microsoft.teams2*` — call mic + audio in the *main* process; helpers `.helper` ×3, `.modulehost`, `.notificationcenter`.
+> - **WhatsApp** `net.whatsapp.WhatsApp*` — includes `net.whatsapp.WhatsApp.ServiceExtension` (separate call process).
+> - **Zoom** `us.zoom*` — `us.zoom.xos` + `us.zoom.caphost`.
+> - **Ignore** `com.apple.CoreSpeech` (Siri/voice trigger toggles the mic on its own).
 
 ### 6.3 AudioProcessMonitor (sketch)
 
@@ -218,14 +222,16 @@ actor AudioProcessMonitor {
     let events: AsyncStream<[Activity]>          // full snapshot on every change
 
     func start() throws {
-        // 1. listen to kAudioHardwarePropertyProcessObjectList on kAudioObjectSystemObject
-        // 2. for each process object: add listeners for IsRunningInput / IsRunningOutput
-        // 3. on any change: rebuild snapshot, yield to `events`
+        // 1. listen to kAudioHardwarePropertyProcessObjectList on kAudioObjectSystemObject (fires reliably)
+        // 2. every 1 s (DispatchSourceTimer on the monitor queue): read IsRunningInput / IsRunningOutput
+        //    of every process object; also re-read immediately after a process-list change
+        // 3. if any state changed: rebuild snapshot, yield to `events`
+        // (per-process property listeners register OK but never fire on macOS 26.6 — EM-004)
     }
 }
 ```
 
-Listeners are registered with `AudioObjectAddPropertyListenerBlock` on a private serial queue; they only call `continuation.yield(snapshot())`.
+The process-list listener and the poll timer run on one private serial queue; they only diff state and call `continuation.yield(snapshot())`. Optional: a `kAudioDevicePropertyDeviceIsRunningSomewhere` device listener as an extra re-scan trigger (still being evaluated).
 
 ### 6.4 Rules engine & state machine
 
@@ -290,7 +296,7 @@ Rules (all timers use an injected `Clock` for testability):
 ### 7.2 Process tap setup (system track)
 
 1. Resolve target PIDs (all processes attributed to the meeting app, §6.2) → audio object IDs via `kAudioHardwarePropertyTranslatePIDToProcessObject`.
-2. `let desc = CATapDescription(stereoMixdownOfProcesses: processObjectIDs)`; set `desc.uuid`, `desc.isPrivate = true`, `desc.muteBehavior = .unmuted` (user still hears the call).
+2. Build `CATapDescription` stereo mixdown of the process objects via a 2-function **Objective-C shim** (`initStereoMixdownOfProcesses:` with `NSArray<NSNumber *>`, proven in SpikeLab `TapShim`); set `desc.isPrivate = true`, default mute behaviour (user still hears the call). Include **all** processes matching the app's bundle prefixes.
 3. `AudioHardwareCreateProcessTap(desc, &tapID)`.
 4. Create a **private aggregate device** (`AudioHardwareCreateAggregateDevice`) with:
    - `kAudioAggregateDeviceIsPrivateKey: true`
@@ -299,6 +305,8 @@ Rules (all timers use an injected `Clock` for testability):
    - `kAudioAggregateDeviceTapAutoStartKey: true`
 5. Read tap stream format (`kAudioTapPropertyFormat`), `AudioDeviceCreateIOProcIDWithBlock` → copy input buffers into ring buffer; `AudioDeviceStart`.
 6. Teardown in reverse: `AudioDeviceStop` → `AudioDeviceDestroyIOProcID` → `AudioHardwareDestroyAggregateDevice` → `AudioHardwareDestroyProcessTap`.
+
+**Measured (EM-005/006):** tap format 48 kHz / 2 ch / Float32 interleaved; setup ≈ 25 ms; first **40–300 ms** after start are digital silence (spin-up) → capture must start in *Candidate* state. Call audio from Teams/WhatsApp is mono duplicated to both channels. Silence behaviour differs per app: Teams ≈ −70 dBFS comfort noise, WhatsApp/Zoom digital zeros with callbacks continuing, Chrome **no frames at all** → the writer must gap-fill by host time, never assume continuous frames.
 
 The first tap creation triggers the macOS "System Audio Recording" consent (`NSAudioCaptureUsageDescription`). There is no public API to query this permission; Diagnostics verifies it by checking that the tap delivers non-silent audio during a test sound.
 
@@ -798,4 +806,5 @@ Phase 2/3 items (live transcript, browser detection, diarization UI, cloud STT, 
 
 ## Changelog
 
+- **v0.2 (2026-10-14)** — Applied Sprint 0 spike findings: detection uses process-list listener + 1 s poll (TD-3); verified bundle prefixes & helper processes; CATapDescription via ObjC shim; tap format, start-up gap, per-app silence behaviour.
 - **v0.1 (2026-10-13)** — Initial technical design based on Feature Spec v0.2; local model download-on-first-use adopted (TD-5).

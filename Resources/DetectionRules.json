@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "status": "draft — from Sprint 0 spikes (EM-004..006); debounce/grace provisional until EM-007 background logging is analysed",
+  "pollIntervalMs": 1000,
+  "ignoreBundlePrefixes": ["com.apple.CoreSpeech"],
+  "apps": [
+    {
+      "id": "teams", "name": "Microsoft Teams",
+      "bundlePrefixes": ["com.microsoft.teams2"],
+      "startSignal": "mic", "debounceSec": 5, "graceSec": 15,
+      "notes": "Call mic+audio in main process com.microsoft.teams2; mute keeps mic open; WebView helper output stays on after call (not a call signal)."
+    },
+    {
+      "id": "zoom", "name": "Zoom",
+      "bundlePrefixes": ["us.zoom"],
+      "startSignal": "mic", "debounceSec": 5, "graceSec": 15,
+      "notes": "Processes us.zoom.xos + us.zoom.caphost. Digital-zero silence."
+    },
+    {
+      "id": "whatsapp", "name": "WhatsApp",
+      "bundlePrefixes": ["net.whatsapp.WhatsApp"],
+      "startSignal": "mic", "debounceSec": 8, "graceSec": 15,
+      "notes": "Includes net.whatsapp.WhatsApp.ServiceExtension (call process). Longer debounce to skip voice notes."
+    },
+    { "id": "slack", "name": "Slack", "bundlePrefixes": ["com.tinyspeck.slackmacgap"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15, "notes": "Unverified" },
+    { "id": "facetime", "name": "FaceTime", "bundlePrefixes": ["com.apple.FaceTime"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15, "notes": "Unverified" },
+    { "id": "webex", "name": "Webex", "bundlePrefixes": ["Cisco-Systems.Spark"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15, "notes": "Unverified" }
+  ],
+  "browsers": [
+    {
+      "bundlePrefixes": ["com.google.Chrome", "com.apple.Safari", "com.apple.WebKit", "com.microsoft.edgemac", "company.thebrowser.Browser", "com.brave.Browser", "org.mozilla.firefox"],
+      "titlePatterns": ["^Meet - ", "meet\\.google\\.com", "\\| Microsoft Teams", "Zoom Meeting"],
+      "notes": "Phase 2. Chrome audio runs in com.google.Chrome.helper; output held for a while after pause; delivers no frames when silent."
+    }
+  ]
+}

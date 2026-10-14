@@ -82,7 +82,7 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-005 ✅ | Spike S1b: process tap capture | `CATapDescription(stereoMixdownOfProcesses:)` → `AudioHardwareCreateProcessTap` → private aggregate device → IOProc → write WAV. Test with Music app first | 5 | EM-004 |
 | EM-006 ✅ | Spike S1c: real call capture | Capture Teams, Zoom, WhatsApp calls (test call with a second device). Record which helper processes carry audio; confirm Spotify playing at same time is **not** captured | 4 | EM-005 |
 | EM-007 | Spike S2: detection timelines | **Automated:** background logger (`passive/install.sh`) records mic/output events during real meetings for a few days; `passive/calls.py` derives per-app sessions, short false-start uses, in-call gaps → debounce/grace. Manual `scenario.sh` only for targeted checks | 5 | EM-004 |
-| EM-008 | Spike findings write-up | `docs/spikes/S1-S2.md`: per-app bundle IDs/helpers, recommended debounce/grace, quirks, go/no-go. Update `DetectionRules.json` draft | 2 | EM-006, EM-007 |
+| EM-008 ✅ | Spike findings write-up | `docs/spikes/S1-S2.md`: per-app bundle IDs/helpers, recommended debounce/grace, quirks, go/no-go. Update `DetectionRules.json` draft | 2 | EM-006, EM-007 |
 | | **Sprint total** | | **22** | |
 
 **Exit criteria:** clean remote audio WAV for all 3 apps; signal timelines show a usable start/end pattern; go/no-go recorded. **If S1 fails for an app** → prototype ScreenCaptureKit audio fallback in S1 before proceeding.

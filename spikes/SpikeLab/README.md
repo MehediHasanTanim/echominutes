@@ -36,3 +36,7 @@ Edit in Xcode with `open spikes/SpikeLab/Package.swift` (build/run via the scrip
 tccutil reset Microphone com.tanimkabir.echominutes.spikelab
 tccutil reset AudioCapture com.tanimkabir.echominutes.spikelab
 ```
+
+## Verification (2026-10-14)
+
+`run.sh all` on macOS 26.6.2 / Xcode 27.0 → **ALL CHECKS PASSED**: bundle ID `com.tanimkabir.echominutes.spikelab`, team G26QS5R4FS, Hardened Runtime on, `audio-input` entitlement present, both usage strings present, microphone granted, process tap created (48 kHz, 2 ch, 32-bit float) and destroyed.

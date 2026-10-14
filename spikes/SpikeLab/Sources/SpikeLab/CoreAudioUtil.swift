@@ -27,6 +27,33 @@ enum CA {
         return id
     }
 
+    static func defaultInputDevice() -> AudioObjectID {
+        var addr = address(kAudioHardwarePropertyDefaultInputDevice)
+        var id = AudioObjectID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &id)
+        return id
+    }
+
+    /// Channels per stream buffer for a device scope (e.g. input streams of an aggregate device).
+    static func streamChannels(_ dev: AudioObjectID, scope: AudioObjectPropertyScope) -> [Int] {
+        var addr = address(kAudioDevicePropertyStreamConfiguration, scope: scope)
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(dev, &addr, 0, nil, &size) == noErr, size > 0 else { return [] }
+        let raw = UnsafeMutableRawPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<AudioBufferList>.alignment)
+        defer { raw.deallocate() }
+        guard AudioObjectGetPropertyData(dev, &addr, 0, nil, &size, raw) == noErr else { return [] }
+        return UnsafeMutableAudioBufferListPointer(raw.assumingMemoryBound(to: AudioBufferList.self)).map { Int($0.mNumberChannels) }
+    }
+
+    static func nominalRate(_ dev: AudioObjectID) -> Double {
+        var addr = address(kAudioDevicePropertyNominalSampleRate)
+        var v: Float64 = 0
+        var size = UInt32(MemoryLayout<Float64>.size)
+        AudioObjectGetPropertyData(dev, &addr, 0, nil, &size, &v)
+        return v
+    }
+
     static func uint32(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector) -> UInt32? {
         var addr = address(selector)
         var value: UInt32 = 0

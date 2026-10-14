@@ -9,17 +9,20 @@ import TapShim
 ///        run.sh capture --global [--duration <sec>]      (everything except SpikeLab)
 ///   --app   matches audio bundle ID, owning app bundle ID, app name or executable (case-insensitive),
 ///           e.g. teams | com.microsoft.teams2 | chrome | music | zoom | whatsapp
+///   --mic   EM-016: also record the default microphone in the SAME aggregate device (one clock) →
+///           writes …-system.wav + …-mic.wav, sample-aligned (input for echo analysis EM-015)
 /// Output: spikes/SpikeLab/output/capture-<label>-<timestamp>.wav (32-bit float, tap's native rate/channels)
 enum CaptureCommand {
     private static var current: ProcessTapRecorder?
 
     static func run(_ args: [String]) async -> Int32 {
-        var needle: String?, global = false, duration: Double?
+        var needle: String?, global = false, duration: Double?, withMic = false
         var i = 0
         while i < args.count {
             switch args[i] {
             case "--app": i += 1; needle = i < args.count ? args[i].lowercased() : nil
             case "--global": global = true
+            case "--mic": withMic = true
             case "--duration": i += 1; duration = i < args.count ? Double(args[i]) : nil
             default: Log.warn("Ignoring unknown option \(args[i])")
             }
@@ -30,7 +33,7 @@ enum CaptureCommand {
         }
         guard #available(macOS 14.2, *) else { Log.error("Process taps need macOS 14.2+"); return 1 }
 
-        let recorder = ProcessTapRecorder(needle: needle, global: global)
+        let recorder = ProcessTapRecorder(needle: needle, global: global, withMic: withMic)
         current = recorder
         defer { current = nil }
         return await withCheckedContinuation { cont in
@@ -71,7 +74,14 @@ final class ProcessTapRecorder {
     private var lastOutputLine = ""
     private var lastCallbacks = 0, lastEmpty = 0, lastFrames: Int64 = 0
 
-    init(needle: String?, global: Bool) { self.needle = needle; self.global = global }
+    private let withMic: Bool
+    private var micFile: AVAudioFile?
+    private var micFormat: AVAudioFormat?
+    private var micURL: URL?
+    private var micPeakSec: Float = 0, micOverallPeak: Float = 0, micSecondsWithSignal = 0
+    private var loggedLayout = false
+
+    init(needle: String?, global: Bool, withMic: Bool = false) { self.needle = needle; self.global = global; self.withMic = withMic }
 
     // MARK: - Start
 
@@ -139,6 +149,17 @@ final class ProcessTapRecorder {
         let outID = CA.defaultOutputDevice()
         guard let outUID = CA.string(outID, kAudioDevicePropertyDeviceUID) else { throw SpikeError("No default output device UID") }
         Log.line("Clock device: \(CA.string(outID, kAudioObjectPropertyName) ?? "?") (\(outUID))")
+        var subDevices: [[String: Any]] = [[kAudioSubDeviceUIDKey: outUID]]
+        if withMic {
+            let inID = CA.defaultInputDevice()
+            guard let inUID = CA.string(inID, kAudioDevicePropertyDeviceUID) else { throw SpikeError("No default input device") }
+            let inRate = CA.nominalRate(inID), outRate = CA.nominalRate(outID)
+            Log.line("Mic device: \(CA.string(inID, kAudioObjectPropertyName) ?? "?") (\(inUID)) \(Int(inRate)) Hz, input streams \(CA.streamChannels(inID, scope: kAudioObjectPropertyScopeInput))")
+            if inRate != outRate { Log.warn("Mic rate \(Int(inRate)) Hz ≠ clock device \(Int(outRate)) Hz — aggregate will resample/drift-correct") }
+            if inUID != outUID { subDevices.append([kAudioSubDeviceUIDKey: inUID, kAudioSubDeviceDriftCompensationKey: true]) }
+            let transport = CA.uint32(outID, kAudioDevicePropertyTransportType) ?? 0
+            Log.line("Output transport: \(fourCC(transport)) \(transport == kAudioDeviceTransportTypeBuiltIn ? "(built-in → speakers likely: echo risk)" : "")")
+        }
         let aggDesc: [String: Any] = [
             kAudioAggregateDeviceNameKey: "SpikeLab-Tap",
             kAudioAggregateDeviceUIDKey: "spikelab-tap-\(UUID().uuidString)",
@@ -146,19 +167,28 @@ final class ProcessTapRecorder {
             kAudioAggregateDeviceIsPrivateKey: true,
             kAudioAggregateDeviceIsStackedKey: false,
             kAudioAggregateDeviceTapAutoStartKey: true,
-            kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: outUID]],
+            kAudioAggregateDeviceSubDeviceListKey: subDevices,
             kAudioAggregateDeviceTapListKey: [[kAudioSubTapDriftCompensationKey: true,
                                                kAudioSubTapUIDKey: desc.uuid.uuidString]],
         ]
         st = AudioHardwareCreateAggregateDevice(aggDesc as CFDictionary, &aggregateID)
         guard st == noErr else { throw SpikeError("AudioHardwareCreateAggregateDevice: \(describeStatus(st))") }
-        Log.ok("Aggregate device id=\(aggregateID)")
+        Log.ok("Aggregate device id=\(aggregateID), input streams (channels): \(CA.streamChannels(aggregateID, scope: kAudioObjectPropertyScopeInput))")
 
         // 5. Output file
         let outDir = Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output")
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         let df = DateFormatter(); df.dateFormat = "yyyyMMdd-HHmmss"
-        let url = outDir.appendingPathComponent("capture-\(label)-\(df.string(from: Date())).wav")
+        let stamp = df.string(from: Date())
+        let url = outDir.appendingPathComponent("capture-\(label)-\(stamp)\(withMic ? "-system" : "").wav")
+        if withMic {
+            let mf = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: fmt.sampleRate, channels: 1, interleaved: false)!
+            micFormat = mf
+            let mu = outDir.appendingPathComponent("capture-\(label)-\(stamp)-mic.wav")
+            micFile = try AVAudioFile(forWriting: mu, settings: mf.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+            micURL = mu
+            Log.line("Mic file: \(mu.path)")
+        }
         file = try AVAudioFile(forWriting: url, settings: fmt.settings, commonFormat: .pcmFormatFloat32, interleaved: fmt.isInterleaved)
         fileURL = url
         Log.line("File: \(url.path)")
@@ -179,6 +209,7 @@ final class ProcessTapRecorder {
 
     private func handle(_ abl: UnsafePointer<AudioBufferList>) {
         callbacks += 1
+        if withMic { handleDual(abl); return }
         guard let format, let file else { return }
         // Peak across all float samples (format-agnostic for Float32)
         var peak: Float = 0
@@ -204,6 +235,60 @@ final class ProcessTapRecorder {
             let bars = max(0, min(40, Int((db + 60) / 1.5)))
             Log.line(String(format: "%4ds  %6.1f dBFS  ", secondsTotal, db) + String(repeating: "▮", count: bars))
             secondPeak = 0; secondFrames = 0
+        }
+    }
+
+    /// EM-016: aggregate delivers one buffer per stream: [mic stream(s)…, tap stream] (order logged once).
+    private func handleDual(_ abl: UnsafePointer<AudioBufferList>) {
+        guard let format, let file, let micFormat, let micFile else { return }
+        let list = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: abl))
+        if !loggedLayout {
+            loggedLayout = true
+            Log.line("IO buffers per callback: " + list.map { "\($0.mNumberChannels)ch/\($0.mDataByteSize)B" }.joined(separator: ", ")
+                     + "  (assuming first = mic, last = tap)")
+        }
+        guard list.count >= 2 else { emptyCallbacks += 1; return }
+
+        // System (tap) = last buffer
+        let sysBuf = list[list.count - 1]
+        let sysCh = max(Int(sysBuf.mNumberChannels), 1)
+        let sysFrames = Int(sysBuf.mDataByteSize) / MemoryLayout<Float>.size / sysCh
+        var sysPeak: Float = 0
+        if let d = sysBuf.mData {
+            let p = d.assumingMemoryBound(to: Float.self)
+            for k in 0..<(sysFrames * sysCh) { sysPeak = max(sysPeak, abs(p[k])) }
+        }
+        var single = AudioBufferList(mNumberBuffers: 1, mBuffers: sysBuf)
+        if sysFrames > 0, let pcm = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: &single, deallocator: nil) {
+            do { try file.write(from: pcm) } catch { writeErrors += 1 }
+        }
+
+        // Mic = first buffer, channel 0 → mono
+        let mb = list[0]
+        let mch = max(Int(mb.mNumberChannels), 1)
+        let mFrames = Int(mb.mDataByteSize) / MemoryLayout<Float>.size / mch
+        var micPeak: Float = 0
+        if mFrames > 0, let src = mb.mData?.assumingMemoryBound(to: Float.self),
+           let pcm = AVAudioPCMBuffer(pcmFormat: micFormat, frameCapacity: AVAudioFrameCount(mFrames)) {
+            pcm.frameLength = AVAudioFrameCount(mFrames)
+            let dst = pcm.floatChannelData![0]
+            for i in 0..<mFrames { let v = src[i * mch]; dst[i] = v; micPeak = max(micPeak, abs(v)) }
+            do { try micFile.write(from: pcm) } catch { writeErrors += 1 }
+        }
+
+        let frames = Int64(max(sysFrames, mFrames))
+        framesWritten += frames
+        overallPeak = max(overallPeak, sysPeak); micOverallPeak = max(micOverallPeak, micPeak)
+        secondPeak = max(secondPeak, sysPeak); micPeakSec = max(micPeakSec, micPeak)
+        secondFrames += frames
+        if secondFrames >= Int64(format.sampleRate) {
+            secondsTotal += 1
+            let sdb = dBFS(secondPeak), mdb = dBFS(micPeakSec)
+            if sdb > -60 { secondsWithSignal += 1 }
+            if mdb > -60 { micSecondsWithSignal += 1 }
+            func bar(_ db: Float) -> String { String(repeating: "▮", count: max(0, min(20, Int((db + 60) / 3)))).padding(toLength: 20, withPad: " ", startingAt: 0) }
+            Log.line(String(format: "%4ds  sys %6.1f dB %@  mic %6.1f dB %@", secondsTotal, sdb, bar(sdb), mdb, bar(mdb)))
+            secondPeak = 0; micPeakSec = 0; secondFrames = 0
         }
     }
 
@@ -256,6 +341,10 @@ final class ProcessTapRecorder {
         Log.line("IO callbacks: \(callbacks) (\(emptyCallbacks) empty)")
         if writeErrors > 0 { Log.warn("\(writeErrors) buffer write errors") }
         if let fileURL { Log.line("WAV: \(fileURL.path)") }
+        if let micURL {
+            Log.line(String(format: "Mic: overall peak %.1f dBFS, %d of %d seconds had signal", dBFS(micOverallPeak), micSecondsWithSignal, secondsTotal))
+            Log.line("Mic WAV: \(micURL.path)")
+        }
         if secondsTotal > 0 && secondsWithSignal == 0 {
             Log.warn("Only silence captured. Check: the app was actually playing sound; System Settings ▸ Privacy & Security ▸ Screen & System Audio Recording ▸ 'System Audio Recording Only' ▸ SpikeLab enabled")
             finish(1)
@@ -273,6 +362,7 @@ final class ProcessTapRecorder {
         if aggregateID != kAudioObjectUnknown { AudioHardwareDestroyAggregateDevice(aggregateID); aggregateID = AudioObjectID(kAudioObjectUnknown) }
         if tapID != kAudioObjectUnknown { AudioHardwareDestroyProcessTap(tapID); tapID = AudioObjectID(kAudioObjectUnknown) }
         file = nil   // closes the WAV (header finalized on deinit)
+        micFile = nil
     }
 
     private func finish(_ code: Int32) {

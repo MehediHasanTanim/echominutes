@@ -52,3 +52,11 @@ spikes/SpikeLab/passive/uninstall.sh    # stop
 
 Logs only mic/output on-off events per process (no audio). `calls.py` lists every mic session per app and suggests debounce/grace values.
 `scenario.sh` + `timeline.py` remain available for a targeted, step-by-step check of one app.
+
+## EM-016 / EM-015 — dual-track capture & echo check
+
+```bash
+spikes/SpikeLab/run.sh capture --app chrome --mic --duration 20     # app audio + mic in ONE aggregate device
+python3 spikes/SpikeLab/echo_check.py spikes/SpikeLab/output/capture-…-mic.wav
+```
+Writes `…-system.wav` and `…-mic.wav` on one clock; `echo_check.py` reports alignment, echo delay and leakage level.

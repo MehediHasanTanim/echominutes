@@ -72,6 +72,16 @@ enum TranscribeCommand {
                 let rtf = audioSec > 0 ? secs / audioSec : 0
                 let detected = results.first?.language ?? "?"
                 var lines: [String] = []
+                // Diagnostics: show what the decoder produced, including segments we would drop
+                Log.line("Results: \(results.count) window(s)")
+                for (ri, r) in results.enumerated() {
+                    Log.line("  window \(ri): lang=\(r.language) segments=\(r.segments.count) raw text=\"\(r.text.prefix(120))\"")
+                    for seg in r.segments {
+                        Log.line(String(format: "    seg %5.1f–%5.1f  avgLogprob %.2f  noSpeech %.2f  compression %.2f  temp %.1f  \"%@\"",
+                                        seg.start, seg.end, seg.avgLogprob, seg.noSpeechProb, seg.compressionRatio, seg.temperature,
+                                        String(seg.text.prefix(60))))
+                    }
+                }
                 for r in results {
                     for seg in r.segments {
                         let text = seg.text.trimmingCharacters(in: .whitespaces)
@@ -84,7 +94,7 @@ enum TranscribeCommand {
                               audioSec, secs, rtf, rtf > 0 ? 1 / rtf : 0, detected, peakRSSMB()))
 
                 let base = url.deletingPathExtension().lastPathComponent
-                let txt = outDir.appendingPathComponent("transcript-\(base)-\(model).txt")
+                let txt = outDir.appendingPathComponent("transcript-\(base)-\(model)-\(lang ?? "auto")-\(vad ? "vad" : "novad").txt")
                 try? (lines.joined(separator: "\n") + "\n").write(to: txt, atomically: true, encoding: .utf8)
                 appendBench(outDir, [iso(), url.lastPathComponent, model, lang ?? "auto", detected, vad ? "vad" : "novad",
                                      String(format: "%.2f", audioSec), String(format: "%.2f", secs), String(format: "%.4f", rtf),

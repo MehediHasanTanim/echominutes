@@ -79,7 +79,7 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-002 ✅ | Signing identity | Create/confirm Apple Development certificate; note team ID; confirm TCC prompts persist across rebuilds with a stable identity | 1 | EM-001 |
 | EM-003 ✅ | Spike project | Throwaway Xcode command-line/menu app `SpikeLab` (not production code), Hardened Runtime, `NSMicrophoneUsageDescription`, `NSAudioCaptureUsageDescription` | 1 | EM-002 |
 | EM-004 ✅ | Spike S1a: list audio processes | Enumerate `kAudioHardwarePropertyProcessObjectList`; print PID, bundle ID, `IsRunningInput/Output` live; observe changes with property listeners | 3 | EM-003 |
-| EM-005 | Spike S1b: process tap capture | `CATapDescription(stereoMixdownOfProcesses:)` → `AudioHardwareCreateProcessTap` → private aggregate device → IOProc → write WAV. Test with Music app first | 5 | EM-004 |
+| EM-005 ✅ | Spike S1b: process tap capture | `CATapDescription(stereoMixdownOfProcesses:)` → `AudioHardwareCreateProcessTap` → private aggregate device → IOProc → write WAV. Test with Music app first | 5 | EM-004 |
 | EM-006 | Spike S1c: real call capture | Capture Teams, Zoom, WhatsApp calls (test call with a second device). Record which helper processes carry audio; confirm Spotify playing at same time is **not** captured | 4 | EM-005 |
 | EM-007 | Spike S2: detection timelines | Log signal timelines for each app across 5 scenarios: open app without call, pre-join preview, join call, mute 2 min, leave call. Capture to CSV | 5 | EM-004 |
 | EM-008 | Spike findings write-up | `docs/spikes/S1-S2.md`: per-app bundle IDs/helpers, recommended debounce/grace, quirks, go/no-go. Update `DetectionRules.json` draft | 2 | EM-006, EM-007 |

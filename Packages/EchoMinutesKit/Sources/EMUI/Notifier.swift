@@ -100,7 +100,9 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         content.categoryIdentifier = category
         content.userInfo = userInfo
         if sound { content.sound = .default }
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil)) { error in
+        // @Sendable: the completion runs on a background queue; without it Swift 6 would treat the closure as
+        // main-actor isolated and trap at runtime.
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil)) { @Sendable error in
             if let error { Log.error(.ui, "Notification failed: \(error)") }
         }
     }

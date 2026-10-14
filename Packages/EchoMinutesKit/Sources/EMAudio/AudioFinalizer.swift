@@ -108,11 +108,11 @@ public enum AudioFinalizer {
                 let v = Leveler.softLimit(gs * s[k] + (k < micN ? gm * m[k] : 0))
                 out[k] = v
                 windowPeak = max(windowPeak, abs(v)); windowFill += 1
-                if windowFill == window { peaks.append(UInt8(min(255, windowPeak * 255))); windowPeak = 0; windowFill = 0 }
+                if windowFill == window { peaks.append(peakByte(windowPeak)); windowPeak = 0; windowFill = 0 }
             }
             try mixOut?.write(from: outBuf)
         }
-        if windowFill > 0 { peaks.append(UInt8(min(255, windowPeak * 255))) }
+        if windowFill > 0 { peaks.append(peakByte(windowPeak)) }
         mixOut = nil
         try Data(peaks).write(to: dir.appendingPathComponent("waveform.bin"), options: .atomic)
 
@@ -120,6 +120,12 @@ public enum AudioFinalizer {
                                              systemGainDB: sysGainDB, micGainDB: micGainDB,
                                              micActiveSeconds: includesMic ? micMeter.activeSeconds : nil)
         return (info, peaks.count)
+    }
+
+    /// 0…1 → 0…255; NaN/negative → 0 (UInt8(_:) traps on NaN).
+    static func peakByte(_ v: Float) -> UInt8 {
+        guard v.isFinite, v > 0 else { return 0 }
+        return UInt8(min(255, v * 255))
     }
 
     private static func forEachBlock(_ url: URL, format: AVAudioFormat, _ body: (UnsafePointer<Float>, Int) -> Void) throws {

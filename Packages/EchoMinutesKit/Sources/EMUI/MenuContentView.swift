@@ -68,12 +68,11 @@ public struct MenuBarIcon: View {
     public init() {}
 
     public var body: some View {
+        // A single, rarely-changing image: a label that re-renders every second (timer text) can make the
+        // status item stop responding to clicks. Elapsed time is shown in the menu and the mini widget instead.
         Group {
-            if case .recording(_, let since) = state.status {
-                HStack(spacing: 4) {
-                    Image(nsImage: Self.redDot)
-                    Text(since, style: .timer).monospacedDigit()
-                }
+            if case .recording = state.status {
+                Image(nsImage: Self.redDot)
             } else {
                 Image(systemName: state.status.symbolName)
             }

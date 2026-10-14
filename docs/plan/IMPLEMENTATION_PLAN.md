@@ -202,11 +202,11 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-070 ✅ | Wire coordinator ↔ recording | Candidate → `startCapture`; Recording → `beginPersisting`; Finalizing → `stop` + enqueue jobs; Discard → delete | 3 | EM-055, EM-065 |
 | EM-071 ✅ | Notifications | `UNUserNotificationCenter` categories: RECORDING_STARTED (Stop, Discard), SWITCH_APP, RECORDING_SAVED; action handlers | 3 | EM-070 |
 | EM-072 ✅ | Menu bar states | Idle / Monitoring / Recording (red + timer) / Processing icons; dropdown reflects current session | 2 | EM-070 |
-| EM-073 | Mini widget | Floating `NSPanel`: timer, two meters, bookmark, stop; toggle in settings | 3 | EM-047, EM-072 |
-| EM-074 | Bookmarks & hotkeys | Carbon global hotkeys (no extra dependency): ⌃⌥⌘R start/stop, ⌃⌥⌘B bookmark, ⌃⌥⌘W widget; bookmarks saved with `at_ms`, shown as jump buttons in the player | 2 | EM-073 |
-| EM-075 | Detection settings UI | Watched apps list with per-app mode (Auto default / Ask / Never), debounce/grace overrides, private hours, "Add app…" picker | 4 | EM-060 |
+| EM-073 ✅ | Mini widget | Floating `NSPanel`: timer, two meters, bookmark, stop; toggle in settings | 3 | EM-047, EM-072 |
+| EM-074 ✅ | Bookmarks & hotkeys | Carbon global hotkeys (no extra dependency): ⌃⌥⌘R start/stop, ⌃⌥⌘B bookmark, ⌃⌥⌘W widget; bookmarks saved with `at_ms`, shown as jump buttons in the player | 2 | EM-073 |
+| EM-075 ✅ | Detection settings UI | Watched apps list with per-app mode (Auto default / Ask / Never), debounce/grace overrides, private hours ("Add app…" picker deferred to Phase 2 browser support) | 4 | EM-060 |
 | EM-076 ✅ | Ask mode | Candidate waits for notification response; keeps 60 s in ring; default action after 20 s | 2 | EM-071 |
-| EM-077 | Real-call tuning | 3 calls per app incl. mute/rejoin; tune debounce/grace in rules JSON; fix false starts. Checklist: `docs/testing/EM-077-real-call-tuning.md`, report: `scripts/detection-report.py` | 4 | all above |
+| EM-077 ✅ | Real-call tuning | 3 calls per app incl. mute/rejoin; tune debounce/grace in rules JSON; fix false starts. Checklist: `docs/testing/EM-077-real-call-tuning.md`, report: `scripts/detection-report.py`. Follow-up: 15-min+ real-call soak + per-app timing review | 4 | all above |
 | | **Sprint total** | | **23** | |
 
 **Demo:** join a Zoom call → recording starts automatically within debounce + 1 s with pre-roll; leave → stops within grace + 2 s; WhatsApp set to Never is ignored.

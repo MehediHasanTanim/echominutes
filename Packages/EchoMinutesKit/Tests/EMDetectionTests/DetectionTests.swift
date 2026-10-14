@@ -19,9 +19,16 @@ func testRules() throws -> DetectionRules {
 struct RuleSetTests {
     @Test func overridesReplaceDefaults() throws {
         let rs = RuleSet(base: try testRules(), overrides: ["whatsapp": RuleOverride(mode: .never), "zoom": RuleOverride(mode: .ask, debounceSec: 3)])
-        #expect(rs.rule("teams")?.mode == .auto && rs.rule("teams")?.debounce == 5)
-        #expect(rs.rule("whatsapp")?.mode == .never && rs.rule("whatsapp")?.debounce == 8)
-        #expect(rs.rule("zoom")?.mode == .ask && rs.rule("zoom")?.debounce == 3 && rs.rule("zoom")?.grace == 15)
+        let teams = try #require(rs.rule("teams"))
+        let whatsapp = try #require(rs.rule("whatsapp"))
+        let zoom = try #require(rs.rule("zoom"))
+        #expect(teams.mode == .auto)
+        #expect(teams.debounce == 5)
+        #expect(whatsapp.mode == .never)
+        #expect(whatsapp.debounce == 8)
+        #expect(zoom.mode == .ask)
+        #expect(zoom.debounce == 3)
+        #expect(zoom.grace == 15)
         #expect(rs.pollInterval == 1)
     }
 
@@ -33,12 +40,25 @@ struct RuleSetTests {
         #expect(rs.appID(bundleID: "com.google.Chrome.helper", owningBundleID: "com.google.Chrome") == nil)
     }
 
-    @Test(arguments: [(9 * 60, 17 * 60, 12 * 60, true), (9 * 60, 17 * 60, 8 * 60, false),
-                      (22 * 60, 7 * 60, 23 * 60, true), (22 * 60, 7 * 60, 6 * 60, true), (22 * 60, 7 * 60, 12 * 60, false)])
-    func privateHours(start: Int, end: Int, at: Int, expected: Bool) {
-        var cal = Calendar(identifier: .gregorian); cal.timeZone = TimeZone(identifier: "UTC")!
-        let date = Date(timeIntervalSince1970: TimeInterval(at * 60))
-        #expect(PrivateHours(startMinute: start, endMinute: end).contains(date, calendar: cal) == expected)
+    struct PHCase: Sendable, CustomTestStringConvertible {
+        let start: Int, end: Int, at: Int, expected: Bool
+        var testDescription: String { "\(start)-\(end) @\(at) → \(expected)" }
+    }
+    static let phCases: [PHCase] = [
+        PHCase(start: 540, end: 1020, at: 720, expected: true),
+        PHCase(start: 540, end: 1020, at: 480, expected: false),
+        PHCase(start: 1320, end: 420, at: 1380, expected: true),
+        PHCase(start: 1320, end: 420, at: 360, expected: true),
+        PHCase(start: 1320, end: 420, at: 720, expected: false),
+    ]
+
+    @Test(arguments: phCases)
+    func privateHours(_ c: PHCase) {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let date = Date(timeIntervalSince1970: TimeInterval(c.at * 60))
+        let hours = PrivateHours(startMinute: c.start, endMinute: c.end)
+        #expect(hours.contains(date, calendar: cal) == c.expected)
     }
 }
 
@@ -56,6 +76,7 @@ struct AggregatorTests {
         let snap = ActivityAggregator.aggregate(procs, rules: rs, selfPID: 99)
         #expect(Set(snap.keys) == ["teams", "zoom"])
         #expect(snap["teams"] == AppActivity(appID: "teams", mic: true, output: true, pids: [10, 11]))
-        #expect(snap["zoom"]?.mic == false && snap["zoom"]?.running == true)
+        #expect(snap["zoom"]?.mic == false)
+        #expect(snap["zoom"]?.running == true)
     }
 }

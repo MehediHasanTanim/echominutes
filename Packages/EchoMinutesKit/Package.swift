@@ -10,7 +10,7 @@ let tapShim: Target.Dependency = .target(name: "EMTapShim")
 let modules: [(name: String, deps: [String], external: [Target.Dependency])] = [
     ("EMCore", [], []),
     ("EMStorage", ["EMCore"], [grdb]),
-    ("EMDetection", ["EMCore"], []),
+    ("EMDetection", ["EMCore", "EMAudio"], []),
     ("EMAudio", ["EMCore"], [atomics, tapShim]),
     ("EMSession", ["EMCore", "EMDetection", "EMAudio", "EMStorage"], []),
     ("EMTranscription", ["EMCore"], []),

@@ -13,7 +13,11 @@ final class MiniWidgetController {
     var isVisible: Bool { panel != nil }
 
     func show(state: AppState) {
-        if let panel { panel.orderFrontRegardless(); return }
+        if let panel {
+            if !panel.isVisible { panel.orderFrontRegardless() }
+            return
+        }
+        Log.info(.ui, "Mini widget: creating panel")
         let p = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 64),
                         styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView, .utilityWindow],
                         backing: .buffered, defer: false)

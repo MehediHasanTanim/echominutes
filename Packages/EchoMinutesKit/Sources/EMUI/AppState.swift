@@ -92,6 +92,7 @@ public final class AppState {
             state.notifier.setup(state: state)
             state.startDetection()
             state.registerHotKeys()
+            MainThreadWatchdog.shared.start()
             return state
         } catch {
             Log.error(.app, "Storage failed to open: \(error)")

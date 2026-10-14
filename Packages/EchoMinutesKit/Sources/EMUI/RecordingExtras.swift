@@ -18,6 +18,7 @@ extension AppState {
     func recordingStateDidChange() {
         let active = recording.isActive
         let sid = recording.info?.sessionID
+        MainThreadWatchdog.shared.context = recording.info.map { "\(active ? "recording" : "state \(recording)") \($0.appName)" } ?? "idle"
         if active, sid != lastActiveSessionID { bookmarksThisRecording = 0 }
         lastActiveSessionID = active ? sid : nil
 

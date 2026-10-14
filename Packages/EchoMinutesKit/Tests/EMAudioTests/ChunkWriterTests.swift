@@ -71,6 +71,33 @@ struct ChunkWriterTests {
         #expect(m.markers.map(\.type).first == "start")
     }
 
+    /// Regression (Zoom call, chunks 20–29 unreadable): with the real 100 ms timer running for many rotations,
+    /// every chunk listed in the on-disk manifest must already be a finalised, readable file — before finish().
+    @Test func closedChunksAreReadableWhileRecording() async throws {
+        let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
+        let src = FakeSource()
+        let w = try ChunkWriter(source: src, sessionDirectory: dir, mode: .persisting, chunkSeconds: 0.5, warnBelowBytes: 0, stopBelowBytes: 0)
+        w.start()
+        for _ in 0..<40 {                                  // 20 s of audio → ~40 chunk rotations on the timer
+            src.feed(seconds: 0.5)
+            try await Task.sleep(for: .milliseconds(60))
+        }
+        try await Task.sleep(for: .milliseconds(400))      // let the timer drain the rest
+        let onDisk = try RecordingManifest.load(from: dir)
+        #expect(onDisk.systemChunks.count >= 30)
+        var unreadable: [String] = []
+        for c in onDisk.systemChunks + onDisk.micChunks {
+            let len = (try? AVAudioFile(forReading: dir.appendingPathComponent(c.file)))?.length ?? 0
+            if len <= 0 { unreadable.append(c.file) }
+        }
+        #expect(unreadable.isEmpty, "unreadable while recording: \(unreadable)")
+        #expect(w.persistedMs > 15_000)                    // lock-free mirror is updated by the timer
+        w.finish()
+        var errors: [ChunkWriter.Event] = []
+        for await e in w.events { if case .error = e { errors.append(e) } }
+        #expect(errors.isEmpty)
+    }
+
     @Test func metersReportPeakLevels() throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
         let src = FakeSource()

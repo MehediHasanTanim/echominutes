@@ -8,7 +8,8 @@ public enum Log {
 
     public static func logger(_ c: Category) -> Logger { Logger(subsystem: subsystem, category: c.rawValue) }
 
-    public static func info(_ c: Category, _ message: String) { logger(c).info("\(Redactor.redact(message), privacy: .public)") }
+    /// `.notice` (not `.info`): info messages are kept in memory only and are gone from `log show` after a crash.
+    public static func info(_ c: Category, _ message: String) { logger(c).notice("\(Redactor.redact(message), privacy: .public)") }
     public static func debug(_ c: Category, _ message: String) { logger(c).debug("\(Redactor.redact(message), privacy: .public)") }
     public static func error(_ c: Category, _ message: String) { logger(c).error("\(Redactor.redact(message), privacy: .public)") }
 }

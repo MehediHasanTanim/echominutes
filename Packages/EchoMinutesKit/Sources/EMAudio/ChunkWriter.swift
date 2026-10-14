@@ -1,3 +1,4 @@
+import Atomics
 import AVFoundation
 import EMCore
 import Foundation
@@ -38,7 +39,13 @@ public final class ChunkWriter: @unchecked Sendable {
     private let chunkFrames: Int
     private let warnBytes: Int64
     private let stopBytes: Int64
-    private let queue = DispatchQueue(label: "echominutes.chunkwriter", qos: .utility)
+    // .workItem: every drain gets its own autorelease pool. Without it AVAudioFile objects released at a chunk
+    // rotation could stay alive in a never-drained pool → the .m4a is never finalised (unreadable chunk).
+    private let queue = DispatchQueue(label: "echominutes.chunkwriter", qos: .utility, autoreleaseFrequency: .workItem)
+    // Lock-free mirrors for readers on other threads (meters, bookmarks) — never block on `queue`.
+    private let micPeakBits = ManagedAtomic<UInt32>(0)
+    private let sysPeakBits = ManagedAtomic<UInt32>(0)
+    private let persistedMsAtomic = ManagedAtomic<Int>(0)
     private var timer: DispatchSourceTimer?
     private var mode: Mode
     private var manifest: RecordingManifest
@@ -74,7 +81,7 @@ public final class ChunkWriter: @unchecked Sendable {
         queue.sync {
             let t = DispatchSource.makeTimerSource(queue: queue)
             t.schedule(deadline: .now() + .milliseconds(100), repeating: .milliseconds(100), leeway: .milliseconds(20))
-            t.setEventHandler { [weak self] in self?.pumpLocked() }
+            t.setEventHandler { [weak self] in autoreleasepool { self?.pumpLocked() } }
             t.resume()
             timer = t
         }
@@ -99,16 +106,14 @@ public final class ChunkWriter: @unchecked Sendable {
     /// Peak level (dBFS, −120…0) of each track over the last drain, decaying ~20 dB/s — for meters (EM-073).
     public struct Levels: Sendable, Equatable { public var micDB: Float; public var systemDB: Float }
     public var levels: Levels {
-        queue.sync {
-            func db(_ x: Float) -> Float { x > 0 ? max(-120, 20 * log10(x)) : -120 }
-            return Levels(micDB: db(micPeak), systemDB: db(sysPeak))
-        }
+        func db(_ bits: UInt32) -> Float { let x = Float(bitPattern: bits); return x > 0 ? max(-120, 20 * log10(x)) : -120 }
+        return Levels(micDB: db(micPeakBits.load(ordering: .relaxed)), systemDB: db(sysPeakBits.load(ordering: .relaxed)))
     }
     /// Milliseconds of audio persisted so far.
-    public var persistedMs: Int { queue.sync { currentMs } }
+    public var persistedMs: Int { persistedMsAtomic.load(ordering: .relaxed) }
 
     /// Drains immediately (tests / before mode changes).
-    public func pump() { queue.sync { pumpLocked() } }
+    public func pump() { queue.sync { autoreleasepool { pumpLocked() } } }
 
     /// Final drain, closes open chunks, writes the manifest and returns it.
     @discardableResult
@@ -129,6 +134,13 @@ public final class ChunkWriter: @unchecked Sendable {
     private var currentMs: Int { Int(Double(sys.totalFrames) / Self.outputRate * 1000) }
 
     private func pumpLocked() {
+        drainLocked()
+        micPeakBits.store(micPeak.bitPattern, ordering: .relaxed)
+        sysPeakBits.store(sysPeak.bitPattern, ordering: .relaxed)
+        persistedMsAtomic.store(currentMs, ordering: .relaxed)
+    }
+
+    private func drainLocked() {
         micPeak *= 0.8; sysPeak *= 0.8                        // per 100 ms ≈ −2 dB → meters fall smoothly
         guard !stoppedForDisk else { source.systemRing.discardAll(); source.micRing.discardAll(); return }
         let rate = source.sampleRate
@@ -182,6 +194,13 @@ public final class ChunkWriter: @unchecked Sendable {
 
     private func chunkClosed(_ track: TrackKind, _ chunk: RecordingManifest.Chunk) {
         if track == .system { manifest.systemChunks.append(chunk) } else { manifest.micChunks.append(chunk) }
+        // Self-check: a closed chunk must already be a valid, readable file (it is what crash recovery relies on).
+        if (try? AVAudioFile(forReading: sessionDirectory.appendingPathComponent(chunk.file)))?.length ?? 0 <= 0 {
+            Log.error(.audio, "Closed chunk is not readable yet: \(chunk.file)")
+            continuation.yield(.error("unreadable chunk \(chunk.file)"))
+        } else if track == .system {
+            Log.info(.audio, "Chunk \(chunk.index) closed (\(currentMs / 1000) s recorded)")
+        }
         continuation.yield(.chunkClosed(track: track, index: chunk.index))
         saveManifest()
         if track == .system { checkDisk() }
@@ -301,7 +320,7 @@ final class TrackWriter {
     /// Closes the open chunk (AVAudioFile finalises the .m4a on release). Returns its manifest entry.
     func closeChunk() -> RecordingManifest.Chunk? {
         guard file != nil else { return nil }
-        file = nil
+        autoreleasepool { file = nil }          // AVAudioFile writes the moov atom when it deallocates
         let chunk = RecordingManifest.Chunk(index: chunkIndex, file: "\(relativeDir)/\(String(format: "%06d.m4a", chunkIndex))", frames: framesInChunk)
         chunkIndex += 1; framesInChunk = 0
         return chunk

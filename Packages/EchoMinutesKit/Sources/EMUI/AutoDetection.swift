@@ -94,6 +94,12 @@ extension AppState {
 
     func detectionUpdated(_ u: DetectionCoordinator.Update) async {
         if u.phase != detectionPhase { detectionPhase = u.phase }
+        if u.snapshot != lastSnapshot { lastSnapshot = u.snapshot }
+        if !u.newDecisions.isEmpty {
+            detectionLog.append(contentsOf: u.newDecisions)
+            if detectionLog.count > 500 { detectionLog.removeFirst(detectionLog.count - 500) }
+            DetectionLogFile.append(u.newDecisions, paths: paths)
+        }
         await syncRecordingState()
     }
 

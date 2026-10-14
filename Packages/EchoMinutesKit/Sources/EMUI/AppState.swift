@@ -1,3 +1,4 @@
+import EMAudio
 import EMCore
 import EMDetection
 import EMSession
@@ -58,6 +59,15 @@ public final class AppState {
     @ObservationIgnored var detectionTasks: [Task<Void, Never>] = []
     public let notifier = Notifier()
 
+    // Live recording extras (EM-073/074)
+    public internal(set) var levels: ChunkWriter.Levels?
+    public internal(set) var bookmarksThisRecording = 0
+    public internal(set) var lastSnapshot: ActivitySnapshot = [:]
+    public internal(set) var detectionLog: [Decision] = []          // newest last, capped
+    @ObservationIgnored let miniWidget = MiniWidgetController()
+    @ObservationIgnored var levelTask: Task<Void, Never>?
+    @ObservationIgnored var lastActiveSessionID: SessionID?
+
     public init(paths: AppPaths?, database: AppDatabase?, startupError: String? = nil, rules: DetectionRules? = DetectionRules.bundled()) {
         self.paths = paths
         self.database = database
@@ -81,6 +91,7 @@ public final class AppState {
             let state = AppState(paths: paths, database: db)
             state.notifier.setup(state: state)
             state.startDetection()
+            state.registerHotKeys()
             return state
         } catch {
             Log.error(.app, "Storage failed to open: \(error)")

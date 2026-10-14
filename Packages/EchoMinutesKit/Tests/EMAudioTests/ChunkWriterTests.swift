@@ -71,6 +71,17 @@ struct ChunkWriterTests {
         #expect(m.markers.map(\.type).first == "start")
     }
 
+    @Test func metersReportPeakLevels() throws {
+        let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
+        let src = FakeSource()
+        let w = try ChunkWriter(source: src, sessionDirectory: dir, mode: .persisting, chunkSeconds: 30, warnBelowBytes: 0, stopBelowBytes: 0)
+        src.feed(seconds: 0.5, amplitude: 0.5, micAmplitude: 0.05); w.pump()
+        let l = w.levels
+        #expect(abs(l.systemDB - -6) < 2.5)        // peak 0.5 ≈ −6 dBFS (one decay step applied before reading)
+        #expect(abs(l.micDB - -26) < 2.5)          // peak 0.05 ≈ −26 dBFS
+        w.finish()
+    }
+
     @Test func pausedAudioIsDropped() throws {
         let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
         let src = FakeSource()

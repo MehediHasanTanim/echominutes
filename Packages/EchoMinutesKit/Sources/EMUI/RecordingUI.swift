@@ -84,6 +84,7 @@ extension AppState {
         case .finalizing: newStatus = .processing("Saving recording…")
         }
         if newStatus != status { status = newStatus }
+        recordingStateDidChange()
     }
 }
 
@@ -174,6 +175,12 @@ final class SessionAudioPlayer {
         currentTime = player.currentTime
     }
 
+    func seek(seconds: TimeInterval) {
+        guard let player else { return }
+        player.currentTime = max(0, min(player.duration, seconds))
+        currentTime = player.currentTime
+    }
+
     func stop() { player?.stop(); isPlaying = false; timer?.invalidate(); timer = nil }
 }
 
@@ -185,6 +192,8 @@ struct SessionAudioView: View {
     @State private var manifest: RecordingManifest?
     @State private var remixing = false
     @State private var remixError: String?
+    @State private var bookmarks: [Bookmark] = []
+    @Environment(AppState.self) private var state
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -199,6 +208,22 @@ struct SessionAudioView: View {
             }
             WaveformView(peaks: peaks, progress: player.duration > 0 ? player.currentTime / player.duration : 0) { player.seek(fraction: $0) }
                 .frame(height: 56)
+            if !bookmarks.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(bookmarks) { b in
+                            Button {
+                                player.seek(seconds: Double(b.atMs) / 1000)
+                                if !player.isPlaying { player.toggle() }
+                            } label: {
+                                Label(fmt(Double(b.atMs) / 1000), systemImage: "bookmark.fill")
+                            }
+                            .buttonStyle(.bordered).controlSize(.small)
+                            .help(b.note ?? "Jump to bookmark")
+                        }
+                    }
+                }
+            }
             if let mix = manifest?.mix {
                 Text("Levels — you: \(db(mix.micLevelDB)) → \(gain(mix.micGainDB)) · others: \(db(mix.systemLevelDB)) → \(gain(mix.systemGainDB))")
                     .font(.caption).foregroundStyle(.secondary)
@@ -216,6 +241,7 @@ struct SessionAudioView: View {
         player.load(directory.appendingPathComponent("mixed.m4a"))
         peaks = AudioFinalizer.loadWaveform(directory.appendingPathComponent("waveform.bin"))
         manifest = try? RecordingManifest.load(from: directory)
+        bookmarks = state.bookmarks(for: session.id)
     }
 
     private func remix() async {

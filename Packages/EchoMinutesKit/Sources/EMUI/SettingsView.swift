@@ -23,6 +23,8 @@ public struct SettingsView: View {
 struct GeneralSettingsView: View {
     @AppStorage("myName") private var myName = ""
     @State private var launchAtLogin = LoginItem.isEnabled
+    @AppStorage(MiniWidgetPreferences.enabledKey) private var miniWidget = true
+    @AppStorage(HotKeyCenter.enabledKey) private var hotkeys = true
     @State private var loginError: String?
     @Environment(AppState.self) private var state
 
@@ -41,6 +43,19 @@ struct GeneralSettingsView: View {
             }
             Section {
                 TextField("Your name (shown instead of \"Me\")", text: $myName)
+            }
+            Section("While recording") {
+                Toggle("Show floating mini widget (timer, meters, bookmark, stop)", isOn: $miniWidget)
+                    .onChange(of: miniWidget) { _, on in
+                        if !on { state.miniWidget.hide() } else { state.recordingStateDidChange() }
+                    }
+                Toggle("Keyboard shortcuts (work in any app)", isOn: $hotkeys)
+                    .onChange(of: hotkeys) { HotKeyCenter.shared.apply() }
+                if hotkeys {
+                    ForEach(HotKeyCenter.defaults, id: \.id) { s in
+                        LabeledContent(s.title, value: s.display)
+                    }
+                }
             }
             Section("Storage") {
                 LabeledContent("Library folder", value: state.paths?.root.path ?? "unavailable")

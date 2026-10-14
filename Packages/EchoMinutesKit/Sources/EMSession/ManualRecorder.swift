@@ -131,6 +131,28 @@ public actor ManualRecorder {
         state = .recording(info)
     }
 
+    /// Live meter levels of the active capture (nil when idle / candidate).
+    public var levels: ChunkWriter.Levels? {
+        guard state.isActive, let writer else { return nil }
+        return writer.levels
+    }
+
+    /// Milliseconds of audio saved so far (pauses excluded) — the position a bookmark refers to.
+    public var elapsedMs: Int? {
+        guard state.isActive, let writer else { return nil }
+        return writer.persistedMs
+    }
+
+    /// Marks "this moment" in the active recording (EM-074).
+    @discardableResult
+    public func addBookmark(note: String? = nil) throws -> Bookmark {
+        guard state.isActive, let info = state.info, let writer else { throw EMError.notFound("active recording") }
+        let b = Bookmark(sessionID: info.sessionID, atMs: writer.persistedMs, note: note)
+        try SessionRepository(db).addBookmark(b)
+        Log.info(.session, "Bookmark at \(b.atMs) ms in \(info.sessionID)")
+        return b
+    }
+
     /// Stops capture, finalizes audio and marks the session ready.
     @discardableResult
     public func stop(now: Date = Date()) async throws -> Session {

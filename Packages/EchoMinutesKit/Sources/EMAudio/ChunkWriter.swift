@@ -47,6 +47,8 @@ public final class ChunkWriter: @unchecked Sendable {
     private var sourceRate: Double = 0
     private var scratchMic = [Float](repeating: 0, count: 48_000)
     private var scratchSys = [Float](repeating: 0, count: 48_000)
+    private var micPeak: Float = 0
+    private var sysPeak: Float = 0
     private var warnedLowDisk = false
     private var stoppedForDisk = false
 
@@ -93,6 +95,15 @@ public final class ChunkWriter: @unchecked Sendable {
     }
 
     public var currentMode: Mode { queue.sync { mode } }
+
+    /// Peak level (dBFS, −120…0) of each track over the last drain, decaying ~20 dB/s — for meters (EM-073).
+    public struct Levels: Sendable, Equatable { public var micDB: Float; public var systemDB: Float }
+    public var levels: Levels {
+        queue.sync {
+            func db(_ x: Float) -> Float { x > 0 ? max(-120, 20 * log10(x)) : -120 }
+            return Levels(micDB: db(micPeak), systemDB: db(sysPeak))
+        }
+    }
     /// Milliseconds of audio persisted so far.
     public var persistedMs: Int { queue.sync { currentMs } }
 
@@ -118,6 +129,7 @@ public final class ChunkWriter: @unchecked Sendable {
     private var currentMs: Int { Int(Double(sys.totalFrames) / Self.outputRate * 1000) }
 
     private func pumpLocked() {
+        micPeak *= 0.8; sysPeak *= 0.8                        // per 100 ms ≈ −2 dB → meters fall smoothly
         guard !stoppedForDisk else { source.systemRing.discardAll(); source.micRing.discardAll(); return }
         let rate = source.sampleRate
         guard rate > 0 else { return }
@@ -148,11 +160,13 @@ public final class ChunkWriter: @unchecked Sendable {
                 do {
                     try scratchSys.withUnsafeMutableBufferPointer { b in
                         _ = source.systemRing.read(into: b.baseAddress!, maxCount: n)
+                        for i in 0..<n { sysPeak = max(sysPeak, abs(b[i])) }
                         try sys.append(b.baseAddress!, count: n) { closed in self.chunkClosed(.system, closed) }
                     }
                     if let mic {
                         try scratchMic.withUnsafeMutableBufferPointer { b in
                             _ = source.micRing.read(into: b.baseAddress!, maxCount: n)
+                            for i in 0..<n { micPeak = max(micPeak, abs(b[i])) }
                             try mic.append(b.baseAddress!, count: n) { closed in self.chunkClosed(.mic, closed) }
                         }
                     }

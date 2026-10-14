@@ -138,14 +138,14 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-040 | SPSCRingBuffer | Pre-allocated Float32 ring with `swift-atomics` head/tail; write (RT-safe), read, `keepLast(seconds)`, overrun counter; stress test with concurrent producer/consumer | 4 | EM-021 |
-| EM-041 | Process resolver | Map `WatchedApp` → all audio process object IDs (bundle prefix + PID→responsible app fallback; exclude own PID) | 2 | EM-004 findings |
-| EM-042 | ProcessTapCapture | Production version of spike: create tap + private aggregate device, IOProc copies to ring, read tap format, clean teardown; `SystemAudioCapture` protocol | 5 | EM-040, EM-041 |
+| EM-040 ✅ | SPSCRingBuffer | Pre-allocated Float32 ring with `swift-atomics` head/tail; write (RT-safe), read, `keepLast(seconds)`, overrun counter; stress test with concurrent producer/consumer | 4 | EM-021 |
+| EM-041 ✅ | Process resolver | Map `WatchedApp` → all audio process object IDs (bundle prefix + PID→responsible app fallback; exclude own PID) | 2 | EM-004 findings |
+| EM-042 ✅ | ProcessTapCapture | Production version of spike: create tap + private aggregate device, IOProc copies to ring, read tap format, clean teardown; `SystemAudioCapture` protocol | 5 | EM-040, EM-041 |
 | EM-043 | Tap rebuild on new helper | Listen for process-list changes during capture; rebuild tap with new PID set; write `tapRebuilt` marker | 2 | EM-042 |
-| EM-044 | MicCapture | `AVAudioEngine` input tap → ring; handle `AVAudioEngineConfigurationChange` + default-input change → restart, `deviceChanged` marker | 3 | EM-040 |
+| EM-044 ✅ | MicCapture (in the same aggregate device, per EM-016) | `AVAudioEngine` input tap → ring; handle `AVAudioEngineConfigurationChange` + default-input change → restart, `deviceChanged` marker | 3 | EM-040 |
 | EM-045 | ScreenCaptureKit fallback (stub) | `SCStreamSystemAudioCapture` conforming to `SystemAudioCapture`; enabled only if S0 showed need — otherwise interface + TODO | 2 | EM-042 |
-| EM-046 | RecordingService API | Actor: `startCapture(app:)`, `beginPersisting()`, `pause/resume`, `stop()`, `levels: AsyncStream<Levels>` | 3 | EM-042, EM-044 |
-| EM-047 | Level meters | RMS per 100 ms per track computed on writer queue → stream to UI; silent-track (> 60 s) warning event | 2 | EM-046 |
+| EM-046 ✅ | RecordingService API | Actor: `startCapture(app:)`, `beginPersisting()`, `pause/resume`, `stop()`, `levels: AsyncStream<Levels>` | 3 | EM-042, EM-044 |
+| EM-047 ✅ | Level meters | RMS per 100 ms per track computed on writer queue → stream to UI; silent-track (> 60 s) warning event | 2 | EM-046 |
 | | **Sprint total** | | **23** | |
 
 **Demo:** debug menu "Start capture: Zoom" shows two live level meters during a test call; no audio glitches; overrun counter = 0.

@@ -56,6 +56,7 @@ final class AudioProcessMonitor {
     private var csvPath = ""
     private var eventCount = 0
     private var pollCount = 0
+    private var deviceEvents = 0
     private var tablePending = false
     private var onStop: ((Int32) -> Void)?
     private var signalSources: [DispatchSourceSignal] = []
@@ -70,6 +71,7 @@ final class AudioProcessMonitor {
             Log.line("Watching audio processes (Ctrl+C to stop)\(self.filter.map { ", filter='\($0)'" } ?? "")")
             Log.line("CSV: \(self.csvPath)")
             self.addListener(CA.system, kAudioHardwarePropertyProcessObjectList)
+            self.addDeviceListeners()
             self.refreshProcessList(initial: true)
             self.printTable(reason: "initial snapshot")
             self.schedulePoll()
@@ -103,22 +105,45 @@ final class AudioProcessMonitor {
         scheduleTable()
     }
 
+    /// Experiment (EM-004 finding): per-process IsRunningInput/Output listeners did not fire on macOS 26.6.
+    /// Test whether device-level kAudioDevicePropertyDeviceIsRunningSomewhere fires, to use as a re-scan trigger.
+    private func addDeviceListeners() {
+        for dev in CA.objectIDs(CA.system, kAudioHardwarePropertyDevices) {
+            let name = CA.string(dev, kAudioObjectPropertyName) ?? "device \(dev)"
+            var addr = CA.address(kAudioDevicePropertyDeviceIsRunningSomewhere)
+            let status = AudioObjectAddPropertyListenerBlock(dev, &addr, queue) { [weak self] _, _ in
+                guard let self else { return }
+                let running = (CA.uint32(dev, kAudioDevicePropertyDeviceIsRunningSomewhere) ?? 0) != 0
+                Log.line("⚡ device_running=\(running ? 1 : 0)  \(name) — listener fired, re-scanning processes")
+                self.deviceEvents += 1
+                self.rescanStates(source: "device")
+            }
+            if status != noErr { Log.warn("Device listener failed for \(name): \(describeStatus(status))") }
+        }
+    }
+
+    /// Re-read all process states; `source` tags how the change was noticed (device listener vs poll).
+    private func rescanStates(source: String) {
+        for (id, var p) in procs {
+            let newIn = (CA.uint32(id, kAudioProcessPropertyIsRunningInput) ?? 0) != 0
+            let newOut = (CA.uint32(id, kAudioProcessPropertyIsRunningOutput) ?? 0) != 0
+            guard newIn != p.input || newOut != p.output else { continue }
+            let oldIn = p.input, oldOut = p.output
+            p.input = newIn; p.output = newOut
+            procs[id] = p
+            if source == "poll" { Log.warn("Change for pid \(p.pid) caught only by 1 s poll") }
+            if newIn != oldIn { record((newIn ? "input_on_" : "input_off_") + source, p) }
+            if newOut != oldOut { record((newOut ? "output_on_" : "output_off_") + source, p) }
+            scheduleTable()
+        }
+    }
+
     /// Safety net: re-read every process once per second. If state changed without a listener
     /// callback, log it as `<event>_poll` so we can tell "no activity" from "listener didn't fire".
     private func schedulePoll() {
         queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self, self.onStop != nil else { return }
-            for (id, var p) in self.procs {
-                let newIn = (CA.uint32(id, kAudioProcessPropertyIsRunningInput) ?? 0) != 0
-                let newOut = (CA.uint32(id, kAudioProcessPropertyIsRunningOutput) ?? 0) != 0
-                guard newIn != p.input || newOut != p.output else { continue }
-                Log.warn("Listener missed a change for pid \(p.pid) — caught by 1 s poll")
-                p.input = newIn; p.output = newOut
-                if newIn != self.procs[id]!.input { self.record(newIn ? "input_on_poll" : "input_off_poll", p) }
-                if newOut != self.procs[id]!.output { self.record(newOut ? "output_on_poll" : "output_off_poll", p) }
-                self.procs[id] = p
-                self.scheduleTable()
-            }
+            self.rescanStates(source: "poll")
             self.pollCount += 1
             self.schedulePoll()
         }
@@ -168,7 +193,7 @@ final class AudioProcessMonitor {
     private func record(_ event: String, _ p: Proc, initial: Bool = false) {
         guard matches(p) else { return }
         eventCount += 1
-        let base = event.replacingOccurrences(of: "_poll", with: "")
+        let base = event.replacingOccurrences(of: "_poll", with: "").replacingOccurrences(of: "_device", with: "")
         let icons = ["input_on": "🎙▲", "input_off": "🎙▼", "output_on": "🔊▲", "output_off": "🔊▼", "process_added": "＋ "]
         let icon = icons[base] ?? "－ "
         if !initial { Log.line("\(icon) \(event.padding(toLength: 15, withPad: " ", startingAt: 0)) pid \(p.pid)\(p.isSelf ? " (SpikeLab)" : "")  \(p.label)") }
@@ -234,7 +259,7 @@ final class AudioProcessMonitor {
         guard let onStop else { return }
         self.onStop = nil
         printTable(reason: "final")
-        Log.line("Stopped (\(reason)). \(eventCount) events, \(pollCount) polls. CSV: \(csvPath)")
+        Log.line("Stopped (\(reason)). \(eventCount) events, \(deviceEvents) device-listener callbacks, \(pollCount) polls. CSV: \(csvPath)")
         try? csv?.close()
         onStop(0)
     }

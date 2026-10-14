@@ -55,6 +55,7 @@ final class AudioProcessMonitor {
     private var csv: FileHandle?
     private var csvPath = ""
     private var eventCount = 0
+    private var pollCount = 0
     private var tablePending = false
     private var onStop: ((Int32) -> Void)?
     private var signalSources: [DispatchSourceSignal] = []
@@ -71,6 +72,7 @@ final class AudioProcessMonitor {
             self.addListener(CA.system, kAudioHardwarePropertyProcessObjectList)
             self.refreshProcessList(initial: true)
             self.printTable(reason: "initial snapshot")
+            self.schedulePoll()
         }
         if let duration {
             queue.asyncAfter(deadline: .now() + duration) { self.stop(reason: "duration \(Int(duration))s elapsed") }
@@ -99,6 +101,27 @@ final class AudioProcessMonitor {
             procs[object] = p
         }
         scheduleTable()
+    }
+
+    /// Safety net: re-read every process once per second. If state changed without a listener
+    /// callback, log it as `<event>_poll` so we can tell "no activity" from "listener didn't fire".
+    private func schedulePoll() {
+        queue.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self, self.onStop != nil else { return }
+            for (id, var p) in self.procs {
+                let newIn = (CA.uint32(id, kAudioProcessPropertyIsRunningInput) ?? 0) != 0
+                let newOut = (CA.uint32(id, kAudioProcessPropertyIsRunningOutput) ?? 0) != 0
+                guard newIn != p.input || newOut != p.output else { continue }
+                Log.warn("Listener missed a change for pid \(p.pid) — caught by 1 s poll")
+                p.input = newIn; p.output = newOut
+                if newIn != self.procs[id]!.input { self.record(newIn ? "input_on_poll" : "input_off_poll", p) }
+                if newOut != self.procs[id]!.output { self.record(newOut ? "output_on_poll" : "output_off_poll", p) }
+                self.procs[id] = p
+                self.scheduleTable()
+            }
+            self.pollCount += 1
+            self.schedulePoll()
+        }
     }
 
     private func refreshProcessList(initial: Bool) {
@@ -145,8 +168,9 @@ final class AudioProcessMonitor {
     private func record(_ event: String, _ p: Proc, initial: Bool = false) {
         guard matches(p) else { return }
         eventCount += 1
+        let base = event.replacingOccurrences(of: "_poll", with: "")
         let icons = ["input_on": "🎙▲", "input_off": "🎙▼", "output_on": "🔊▲", "output_off": "🔊▼", "process_added": "＋ "]
-        let icon = icons[event] ?? "－ "
+        let icon = icons[base] ?? "－ "
         if !initial { Log.line("\(icon) \(event.padding(toLength: 15, withPad: " ", startingAt: 0)) pid \(p.pid)\(p.isSelf ? " (SpikeLab)" : "")  \(p.label)") }
         let now = Date()
         let iso = ISO8601DateFormatter.string(from: now, timeZone: .current, formatOptions: [.withInternetDateTime, .withFractionalSeconds])
@@ -210,7 +234,7 @@ final class AudioProcessMonitor {
         guard let onStop else { return }
         self.onStop = nil
         printTable(reason: "final")
-        Log.line("Stopped (\(reason)). \(eventCount) events written to \(csvPath)")
+        Log.line("Stopped (\(reason)). \(eventCount) events, \(pollCount) polls. CSV: \(csvPath)")
         try? csv?.close()
         onStop(0)
     }

@@ -32,7 +32,7 @@ public final class DebugCaptureModel {
         do {
             session = try await recorder.start(app: app, includeMic: includeMic)
             running = true
-            let stream = recorder.levels
+            let stream = recorder.levels   // nonisolated: AsyncStream is Sendable
             levelTask = Task { [weak self] in
                 for await l in stream { self?.levels = l }
             }

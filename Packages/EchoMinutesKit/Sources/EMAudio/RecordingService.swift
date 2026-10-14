@@ -26,7 +26,7 @@ public actor RecordingService {
         public let startedAt: Date
     }
 
-    public let levels: AsyncStream<Levels>
+    public nonisolated let levels: AsyncStream<Levels>
     private let continuation: AsyncStream<Levels>.Continuation
     private var capture: AggregateCapture?
     private var drainTask: Task<Void, Never>?

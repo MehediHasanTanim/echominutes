@@ -28,8 +28,12 @@ if not os.path.exists(path):
 
 LINE = re.compile(r"^(\S+)\s+(\S+)\s+(\S+)(?:\s+\((.*)\))?$")
 events = []
+restarts = []                    # times the app (re)started detection
 for raw in open(path, encoding="utf-8"):
-    if raw.startswith("#"): continue
+    if raw.startswith("#"):
+        m = re.match(r"^#\s+(\S+)\s+detection started", raw)
+        if m: restarts.append(datetime.fromisoformat(m.group(1)))
+        continue
     m = LINE.match(raw.strip())
     if not m: continue
     t = datetime.fromisoformat(m.group(1))
@@ -75,6 +79,12 @@ print("\nRecordings:")
 for app, s, e, why in calls:
     print(f"  {s:%m-%d %H:%M:%S}  {app:9} {str(e - s).split('.')[0]:>8}  {why}")
 for app, s in open_start.items():
-    print(f"  {s:%m-%d %H:%M:%S}  {app:9}  (still recording / no end logged)")
+    later = [r for r in restarts if r > s]
+    if later:
+        print(f"  {s:%m-%d %H:%M:%S}  {app:9}  no end logged — app quit/relaunched at {later[0]:%H:%M:%S} (recovered as 'interrupted')")
+    else:
+        print(f"  {s:%m-%d %H:%M:%S}  {app:9}  no end logged — still recording, or the app quit/crashed")
+if restarts:
+    print(f"\nApp launches with detection on: {len(restarts)} (last {restarts[-1]:%m-%d %H:%M:%S})")
 print("\nFlags:" if flags else "\nFlags: none — current timings look fine.")
 for f in flags: print("  " + f)

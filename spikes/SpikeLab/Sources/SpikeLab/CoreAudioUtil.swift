@@ -19,6 +19,14 @@ enum CA {
         return ids
     }
 
+    static func defaultOutputDevice() -> AudioObjectID {
+        var addr = address(kAudioHardwarePropertyDefaultOutputDevice)
+        var id = AudioObjectID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &id)
+        return id
+    }
+
     static func uint32(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector) -> UInt32? {
         var addr = address(selector)
         var value: UInt32 = 0

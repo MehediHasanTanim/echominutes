@@ -32,14 +32,14 @@ public struct LibraryView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 260, ideal: 300)
+            #if DEBUG
             .toolbar {
-                #if DEBUG
                 ToolbarItem {
                     Button { state.addSampleSession() } label: { Label("Add sample meeting", systemImage: "plus") }
                         .help("Debug: insert a fake meeting")
                 }
-                #endif
             }
+            #endif
         } detail: {
             if let s = state.session(state.selectedSessionID) {
                 SessionDetailPlaceholder(session: s)

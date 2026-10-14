@@ -80,8 +80,10 @@ enum CA {
 /// Executable path / owning .app helpers (helpers live inside their parent app bundle).
 enum ProcPath {
     static func path(_ pid: pid_t) -> String? {
-        var buf = [CChar](repeating: 0, count: 4096)
-        return proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 ? String(cString: buf) : nil
+        var buf = [UInt8](repeating: 0, count: 4096)
+        let n = proc_pidpath(pid, &buf, UInt32(buf.count))
+        guard n > 0 else { return nil }
+        return String(decoding: buf.prefix(Int(n)), as: UTF8.self)
     }
 
     /// Bundle ID of the outermost `.app` containing the executable.

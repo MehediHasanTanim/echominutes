@@ -99,7 +99,7 @@ public actor ManualRecorder {
         let cap = AggregateCapture(processObjectIDs: procs.map(\.objectID), includeMic: includeMic)
         do {
             try cap.start()
-            let w = try ChunkWriter(source: cap, sessionDirectory: dir, startedAt: now, mode: mode)
+            let w = try ChunkWriter(source: cap, sessionDirectory: dir, startedAt: now, mode: mode, devices: cap.deviceSummary)
             w.start()
             capture = cap; writer = w; session = s
         } catch {

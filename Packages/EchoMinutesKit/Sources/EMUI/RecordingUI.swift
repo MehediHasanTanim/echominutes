@@ -182,6 +182,9 @@ struct SessionAudioView: View {
     let directory: URL
     @State private var player = SessionAudioPlayer()
     @State private var peaks: [Float] = []
+    @State private var manifest: RecordingManifest?
+    @State private var remixing = false
+    @State private var remixError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -189,16 +192,44 @@ struct SessionAudioView: View {
                 Button { player.toggle() } label: { Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill").font(.title) }
                     .buttonStyle(.plain)
                 Text("\(fmt(player.currentTime)) / \(fmt(player.duration))").monospacedDigit().foregroundStyle(.secondary)
+                Spacer()
+                if remixing { ProgressView().controlSize(.small) }
+                Button(manifest?.mix == nil ? "Balance voice levels" : "Rebuild mix") { Task { await remix() } }
+                    .disabled(remixing || player.isPlaying)
             }
             WaveformView(peaks: peaks, progress: player.duration > 0 ? player.currentTime / player.duration : 0) { player.seek(fraction: $0) }
                 .frame(height: 56)
+            if let mix = manifest?.mix {
+                Text("Levels — you: \(db(mix.micLevelDB)) → \(gain(mix.micGainDB)) · others: \(db(mix.systemLevelDB)) → \(gain(mix.systemGainDB))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if let devices = manifest?.devices {
+                Text("Devices: \(devices)").font(.caption).foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
+            }
+            if let remixError { Text(remixError).font(.caption).foregroundStyle(.red) }
         }
-        .onAppear {
-            player.load(directory.appendingPathComponent("mixed.m4a"))
-            peaks = AudioFinalizer.loadWaveform(directory.appendingPathComponent("waveform.bin"))
-        }
+        .onAppear(perform: load)
         .onDisappear { player.stop() }
     }
+
+    private func load() {
+        player.load(directory.appendingPathComponent("mixed.m4a"))
+        peaks = AudioFinalizer.loadWaveform(directory.appendingPathComponent("waveform.bin"))
+        manifest = try? RecordingManifest.load(from: directory)
+    }
+
+    private func remix() async {
+        remixing = true; remixError = nil
+        player.stop()
+        let dir = directory
+        do { _ = try await Task.detached(priority: .userInitiated) { try AudioFinalizer.remix(sessionDirectory: dir) }.value }
+        catch { remixError = "Rebuild failed: \(error.localizedDescription)" }
+        load()
+        remixing = false
+    }
+
+    private func db(_ v: Float?) -> String { v.map { String(format: "%.0f dBFS", $0) } ?? "silent" }
+    private func gain(_ v: Float) -> String { String(format: "%+.0f dB", v) }
 
     private func fmt(_ t: TimeInterval) -> String { String(format: "%02d:%02d", Int(t) / 60, Int(t) % 60) }
 }

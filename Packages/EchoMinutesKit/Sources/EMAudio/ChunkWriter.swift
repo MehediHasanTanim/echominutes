@@ -51,7 +51,8 @@ public final class ChunkWriter: @unchecked Sendable {
     private var stoppedForDisk = false
 
     public init(source: CaptureSource, sessionDirectory: URL, startedAt: Date = Date(), mode: Mode,
-                chunkSeconds: Double = 30, warnBelowBytes: Int64 = 2_000_000_000, stopBelowBytes: Int64 = 500_000_000) throws {
+                chunkSeconds: Double = 30, warnBelowBytes: Int64 = 2_000_000_000, stopBelowBytes: Int64 = 500_000_000,
+                devices: String? = nil) throws {
         self.source = source
         self.sessionDirectory = sessionDirectory
         self.mode = mode
@@ -59,6 +60,7 @@ public final class ChunkWriter: @unchecked Sendable {
         self.warnBytes = warnBelowBytes
         self.stopBytes = stopBelowBytes
         self.manifest = RecordingManifest(startedAt: startedAt, includesMic: source.includesMic)
+        manifest.devices = devices
         (events, continuation) = AsyncStream.makeStream(of: Event.self)
         sys = try TrackWriter(track: .system, sessionDir: sessionDirectory, chunkFrames: chunkFrames)
         if source.includesMic { mic = try TrackWriter(track: .mic, sessionDir: sessionDirectory, chunkFrames: chunkFrames) }

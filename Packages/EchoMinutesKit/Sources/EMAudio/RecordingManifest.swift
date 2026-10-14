@@ -15,6 +15,15 @@ public struct RecordingManifest: Codable, Sendable, Equatable {
         public var detail: String?
     }
 
+    /// What the finalizer measured and applied when building mixed.m4a.
+    public struct MixInfo: Codable, Sendable, Equatable {
+        public var systemLevelDB: Float?
+        public var micLevelDB: Float?
+        public var systemGainDB: Float
+        public var micGainDB: Float
+        public var micActiveSeconds: Double?
+    }
+
     public var version = 1
     public var sampleRate: Double = ChunkWriter.outputRate
     public var startedAt: Date
@@ -25,6 +34,9 @@ public struct RecordingManifest: Codable, Sendable, Equatable {
     public var overruns = 0
     public var rateChanges = 0
     public var finalized = false
+    /// Capture devices, e.g. "out: MacBook Pro Speakers @ 48000 Hz, mic: AirPods Pro @ 24000 Hz" (optional: older manifests lack it).
+    public var devices: String?
+    public var mix: MixInfo?
 
     public init(startedAt: Date, includesMic: Bool) {
         // Whole seconds: the ISO-8601 JSON encoding has no sub-second part, so a reloaded manifest compares equal.

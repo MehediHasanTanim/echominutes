@@ -15,13 +15,13 @@ final class FakeSource: CaptureSource, @unchecked Sendable {
     init(rate: Double = 48_000, includesMic: Bool = true) { sampleRate = rate; self.includesMic = includesMic }
 
     /// Pushes `seconds` of audio at the current rate into both rings (aligned, like the IO block).
-    func feed(seconds: Double, amplitude: Float = 0.5) {
+    func feed(seconds: Double, amplitude: Float = 0.5, micAmplitude: Float? = nil) {
         let n = Int(seconds * sampleRate)
         var sys = [Float](repeating: 0, count: n), mic = [Float](repeating: 0, count: n)
         for i in 0..<n {
             let t = Double(phase + i) / sampleRate
             sys[i] = amplitude * Float(sin(2 * .pi * 440 * t))
-            mic[i] = amplitude * Float(sin(2 * .pi * 220 * t))
+            mic[i] = (micAmplitude ?? amplitude) * Float(sin(2 * .pi * 220 * t))
         }
         phase += n
         sys.withUnsafeBufferPointer { _ = systemRing.write($0.baseAddress!, count: n) }
@@ -143,6 +143,41 @@ struct AudioFinalizerTests {
         #expect(AudioFinalizer.loadWaveform(r.waveformURL).allSatisfy { $0 > 0.3 })   // sine is loud everywhere
         #expect(!FileManager.default.fileExists(atPath: dir.appendingPathComponent("chunks").path))
         #expect(try RecordingManifest.load(from: dir).finalized)
+    }
+
+    @Test func quietMicIsBoostedInTheMix() throws {
+        let dir = tempDir(); defer { try? FileManager.default.removeItem(at: dir) }
+        let src = FakeSource()
+        let w = try ChunkWriter(source: src, sessionDirectory: dir, mode: .persisting, chunkSeconds: 2, warnBelowBytes: 0, stopBelowBytes: 0,
+                                devices: "out: Test Speakers, mic: Test Mic")
+        src.feed(seconds: 4, amplitude: 0.15, micAmplitude: 0.01)    // others ≈ −19 dBFS, me ≈ −43 dBFS
+        w.pump(); w.finish()
+
+        _ = try AudioFinalizer.finalize(sessionDirectory: dir)
+        let m = try RecordingManifest.load(from: dir)
+        #expect(m.devices == "out: Test Speakers, mic: Test Mic")
+        let mix = try #require(m.mix)
+        let micLevel = try #require(mix.micLevelDB)
+        let sysLevel = try #require(mix.systemLevelDB)
+        #expect(abs(micLevel - -43) < 1.5)
+        #expect(abs(sysLevel - -19.5) < 1.5)
+        #expect(mix.micGainDB > 20)                                     // boosted (clamped at +24)
+        #expect(abs(mix.systemGainDB) < 3)
+
+        // Remixing the finished files gives the same result.
+        let again = try AudioFinalizer.remix(sessionDirectory: dir)
+        #expect(abs(again.micGainDB - mix.micGainDB) < 1)
+    }
+
+    @Test func levelerMath() {
+        #expect(Leveler.gainDB(level: nil, maxBoostDB: 24) == 0)
+        #expect(Leveler.gainDB(level: -38, maxBoostDB: 24) == 20)
+        #expect(Leveler.gainDB(level: -60, maxBoostDB: 24) == 24)
+        #expect(Leveler.gainDB(level: -3, maxBoostDB: 24) == -6)
+        #expect(Leveler.softLimit(0.5) == 0.5)
+        #expect(Leveler.softLimit(3) <= 1)
+        #expect(Leveler.softLimit(-3) >= -1)
+        #expect(Leveler.softLimit(0.95) > 0.89)
     }
 
     @Test func recoversFromClosedChunksIgnoringTheOpenOne() throws {

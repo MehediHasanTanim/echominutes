@@ -118,7 +118,7 @@ EchoMinutes/
 │   ├── AppState.swift
 │   ├── Info.plist
 │   └── EchoMinutes.entitlements
-├── Packages/
+├── Packages/EchoMinutesKit/      # ONE local SwiftPM package, one library + test target per module (EM-021)
 │   ├── EMCore/                   # Models, IDs, errors, Clock protocol, utilities
 │   ├── EMDetection/              # AudioProcessMonitor, AppWatcher, BrowserMatcher, RulesEngine
 │   ├── EMAudio/                  # MicCapture, ProcessTapCapture, RingBuffer, ChunkWriter, Mixdown

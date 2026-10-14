@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CONFIG="${1:-Debug}"
-[[ -d EchoMinutes.xcodeproj ]] || scripts/bootstrap.sh
+if [[ ! -d EchoMinutes.xcodeproj || project.yml -nt EchoMinutes.xcodeproj/project.pbxproj ]]; then scripts/bootstrap.sh; fi
 mkdir -p build
 echo "▶ xcodebuild ($CONFIG)…"
 if ! xcodebuild -project EchoMinutes.xcodeproj -scheme EchoMinutes -configuration "$CONFIG" \

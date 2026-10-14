@@ -18,8 +18,11 @@ Personal macOS menu bar utility that auto-detects calls (Teams, Zoom, WhatsApp, 
 scripts/bootstrap.sh     # once: installs XcodeGen (Homebrew) and generates EchoMinutes.xcodeproj from project.yml
 scripts/run.sh           # build (Debug), verify signing/entitlements, launch → waveform icon in the menu bar
 scripts/build.sh Release # release build + checks
+scripts/test.sh          # unit tests for all modules (swift test, Swift Testing)
 xed .                    # open in Xcode
 ```
+
+Code lives in the local package `Packages/EchoMinutesKit` (one library + test target per module: EMCore, EMStorage, EMDetection, EMAudio, EMSession, EMTranscription, EMSummarization, EMJobs, EMExport, EMUI); `App/` is only the composition root.
 
 The Xcode project is generated from `project.yml` — edit that file, not the `.xcodeproj` (git-ignored).
 

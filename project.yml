@@ -9,6 +9,9 @@ options:
 configFiles:
   Debug: Config/Signing.xcconfig
   Release: Config/Signing.xcconfig
+packages:
+  EchoMinutesKit:
+    path: Packages/EchoMinutesKit
 settings:
   base:
     SWIFT_VERSION: "6.0"            # Swift 6 language mode → complete strict concurrency
@@ -22,6 +25,21 @@ targets:
     platform: macOS
     sources:
       - App
+    dependencies:
+      - package: EchoMinutesKit
+        product: EMCore
+      - package: EchoMinutesKit
+        product: EMUI
+      - package: EchoMinutesKit
+        product: EMSession
+      - package: EchoMinutesKit
+        product: EMJobs
+      - package: EchoMinutesKit
+        product: EMTranscription
+      - package: EchoMinutesKit
+        product: EMSummarization
+      - package: EchoMinutesKit
+        product: EMExport
     info:
       path: App/Info.plist
       properties:

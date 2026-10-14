@@ -75,8 +75,8 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-001 | Dev environment | Install latest Xcode, create git repo, `.gitignore`, README, branch strategy (`main` + short feature branches) | 1 | — |
-| EM-002 | Signing identity | Create/confirm Apple Development certificate; note team ID; confirm TCC prompts persist across rebuilds with a stable identity | 1 | EM-001 |
+| EM-001 ✅ | Dev environment | Install latest Xcode, create git repo, `.gitignore`, README, branch strategy (`main` + short feature branches) | 1 | — |
+| EM-002 ✅ | Signing identity | Create/confirm Apple Development certificate; note team ID; confirm TCC prompts persist across rebuilds with a stable identity | 1 | EM-001 |
 | EM-003 | Spike project | Throwaway Xcode command-line/menu app `SpikeLab` (not production code), Hardened Runtime, `NSMicrophoneUsageDescription`, `NSAudioCaptureUsageDescription` | 1 | EM-002 |
 | EM-004 | Spike S1a: list audio processes | Enumerate `kAudioHardwarePropertyProcessObjectList`; print PID, bundle ID, `IsRunningInput/Output` live; observe changes with property listeners | 3 | EM-003 |
 | EM-005 | Spike S1b: process tap capture | `CATapDescription(stereoMixdownOfProcesses:)` → `AudioHardwareCreateProcessTap` → private aggregate device → IOProc → write WAV. Test with Music app first | 5 | EM-004 |

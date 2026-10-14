@@ -31,7 +31,19 @@ IDS="$(security find-identity -v -p codesigning 2>/dev/null)"
 echo "$IDS" | sed 's/^/  /'
 DEV_LINE="$(echo "$IDS" | grep '"Apple Development:' | head -1)"
 if [[ -z "$DEV_LINE" ]]; then
+  ALL="$(security find-identity -p codesigning 2>/dev/null | grep '"Apple Development:')"
+  if [[ -n "$ALL" ]]; then
+    echo "  Found but NOT valid:"; echo "$ALL" | sed 's/^/    /'
+    if echo "$ALL" | grep -q 'CSSMERR_TP_NOT_TRUSTED'; then
+      fail "Certificate not trusted — install Apple's intermediate certificate:"
+      echo "      curl -fsSLO https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer && open AppleWWDRCAG3.cer"
+      echo "      (add it to the 'login' keychain, then re-run this script)"
+    else
+      fail "Certificate present but unusable (see reason above). If no private key on this Mac, delete it in Xcode ▸ Manage Certificates and create a new one."
+    fi
+  else
   fail "No 'Apple Development' identity. Xcode ▸ Settings ▸ Accounts ▸ (your Apple ID) ▸ Manage Certificates ▸ + ▸ Apple Development"
+  fi
 else
   SHA1="$(echo "$DEV_LINE" | awk '{print $2}')"
   NAME="$(echo "$DEV_LINE" | sed -E 's/.*"(.*)".*/\1/')"

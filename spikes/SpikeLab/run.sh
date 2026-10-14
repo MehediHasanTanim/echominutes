@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Launch SpikeLab.app as a real app (so TCC permissions belong to SpikeLab) and stream its output.
+# Usage: run.sh [command] [args…]     e.g. run.sh all | run.sh mic | run.sh tap-probe
+#        BUILD=0 run.sh …              skip rebuilding
+set -euo pipefail
+cd "$(dirname "$0")"
+if [[ "${BUILD:-1}" == "1" ]]; then
+  ./build.sh > build-output.tmp 2>&1 || { cat build-output.tmp; rm -f build-output.tmp; exit 1; }
+  rm -f build-output.tmp
+fi
+mkdir -p output
+LOG="$PWD/output/$(date +%Y%m%d-%H%M%S)-${1:-all}.log"; : > "$LOG"
+
+open -W -n --stdout "$LOG" --stderr "$LOG" build/SpikeLab.app --args "$@" &
+OPEN_PID=$!
+tail -n +1 -f "$LOG" & TAIL_PID=$!
+trap 'kill $TAIL_PID 2>/dev/null || true' EXIT
+wait $OPEN_PID || true
+sleep 0.3
+echo "(log saved: ${LOG#$PWD/})"

@@ -87,11 +87,20 @@ enum DetectionLogFile {
     }
 
     static func append(_ decisions: [Decision], paths: AppPaths?) {
-        guard let url = url(paths) else { return }
         let f = ISO8601DateFormatter(); f.timeZone = .current
-        let text = decisions.map { d in
+        write(decisions.map { d in
             "\(f.string(from: d.at))  \(d.reason.rawValue)  \(d.appID ?? "-")\(d.detail.map { "  (\($0))" } ?? "")\n"
-        }.joined()
+        }.joined(), paths: paths)
+    }
+
+    /// Comment line (ignored by the report), e.g. when detection starts with its effective timings.
+    static func note(_ text: String, paths: AppPaths?) {
+        let f = ISO8601DateFormatter(); f.timeZone = .current
+        write("# \(f.string(from: Date()))  \(text)\n", paths: paths)
+    }
+
+    private static func write(_ text: String, paths: AppPaths?) {
+        guard let url = url(paths) else { return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             if let h = try? FileHandle(forWritingTo: url) {

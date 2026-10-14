@@ -21,9 +21,15 @@ while args:
     if a == "--since": since = datetime.fromisoformat(args.pop(0))
     else: path = a
 
+if not os.path.exists(path):
+    sys.exit(f"No detection log yet at {path}\n"
+             "It is created when the app (this build or newer) starts with Auto-record on, and grows with each\n"
+             "detection decision. Make a call (or a voice note), then run this again.")
+
 LINE = re.compile(r"^(\S+)\s+(\S+)\s+(\S+)(?:\s+\((.*)\))?$")
 events = []
 for raw in open(path, encoding="utf-8"):
+    if raw.startswith("#"): continue
     m = LINE.match(raw.strip())
     if not m: continue
     t = datetime.fromisoformat(m.group(1))

@@ -48,6 +48,9 @@ extension AppState {
         monitor.start()
         detectionRunning = true
         Log.info(.app, "Meeting detection started")
+        DetectionLogFile.note("detection started — " + ruleSet.rules.map {
+            "\($0.id): \($0.mode.rawValue) \(Int($0.debounce))s/\(Int($0.grace))s"
+        }.joined(separator: ", "), paths: paths)
         Task { await syncRecordingState() }
     }
 

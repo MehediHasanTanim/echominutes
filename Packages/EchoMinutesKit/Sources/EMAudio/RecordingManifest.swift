@@ -26,7 +26,11 @@ public struct RecordingManifest: Codable, Sendable, Equatable {
     public var rateChanges = 0
     public var finalized = false
 
-    public init(startedAt: Date, includesMic: Bool) { self.startedAt = startedAt; self.includesMic = includesMic }
+    public init(startedAt: Date, includesMic: Bool) {
+        // Whole seconds: the ISO-8601 JSON encoding has no sub-second part, so a reloaded manifest compares equal.
+        self.startedAt = Date(timeIntervalSince1970: startedAt.timeIntervalSince1970.rounded(.down))
+        self.includesMic = includesMic
+    }
 
     public var totalFrames: Int { systemChunks.reduce(0) { $0 + $1.frames } }
     public var durationMs: Int { Int(Double(totalFrames) / sampleRate * 1000) }

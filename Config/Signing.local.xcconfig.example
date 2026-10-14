@@ -1,0 +1,2 @@
+// Copy to Signing.local.xcconfig (git-ignored) or run: scripts/check-signing.sh --write-local
+DEVELOPMENT_TEAM = ABCDE12345

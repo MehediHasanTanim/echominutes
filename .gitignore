@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+/Packages/*/.build/
+
+# Local signing config (contains your team ID / identity choice)
+Config/Signing.local.xcconfig
+
+# Spike & test outputs (audio may contain real meeting content)
+spikes/**/build/
+spikes/**/output/
+*.wav
+*.caf
+*.m4a
+!Tests/Fixtures/**/*.m4a
+!Tests/Fixtures/**/*.wav
+
+# Logs
+*.log

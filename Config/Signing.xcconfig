@@ -1,0 +1,12 @@
+// Shared signing settings for all EchoMinutes targets.
+// Personal values (team ID) live in Signing.local.xcconfig, which is git-ignored.
+// Create it with:  scripts/check-signing.sh --write-local
+
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+ENABLE_HARDENED_RUNTIME = YES
+
+// Must stay stable: macOS privacy permissions (TCC) are tied to bundle ID + signing identity.
+EM_BUNDLE_ID_PREFIX = com.tanimkabir.echominutes
+
+#include? "Signing.local.xcconfig"

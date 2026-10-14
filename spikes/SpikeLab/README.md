@@ -27,7 +27,7 @@ Edit in Xcode with `open spikes/SpikeLab/Package.swift` (build/run via the scrip
 | `info` | EM-003 | Bundle ID, signing team, Hardened Runtime, entitlements, usage strings |
 | `mic` | EM-003 | Microphone permission status / request |
 | `tap-probe` | EM-003 | Create + destroy a Core Audio process tap |
-| `processes` | EM-004 | *(next)* live list of audio processes with input/output state |
+| `processes` | EM-004 | Live table of audio processes (PID, mic, output, owning app, executable, audio bundle ID) + change events; CSV to `output/processes-*.csv`. Options `--all`, `--filter <text>`, `--duration <sec>`; Ctrl+C stops cleanly |
 | `capture` | EM-005 | *(next)* process-tap capture to WAV |
 
 ## Reset permissions

@@ -22,3 +22,17 @@ Machine: Apple Silicon (M4 Pro), macOS 26.6.2. Data: `spikes/SpikeLab/output/stt
 - Re-run WhatsApp + Teams clips with `--lang bn --no-vad` (turbo) to separate VAD vs language issues.
 - Record 5–10 min real calls (EN, BN, mixed) for realistic RTF and quality.
 - Cloud baseline for Bengali (EM-013).
+
+## Run 2 — Teams clip, turbo, forced language, no VAD (2026-10-14)
+
+| Setting | Result |
+|---|---|
+| `--lang bn --no-vad` | **0 segments** — forcing the wrong language makes Whisper reject everything |
+| `--lang en --no-vad` | 6 segments covering 0–14 s and 26–31 s (VAD run had missed 0–14 s); music section 14–26 s correctly left empty; RTF **0.136** (7× real time) |
+
+Segment diagnostics (en): five "Hello!" segments decoded only at **temperature 1.0** (all fallbacks used) with **compression ratio 3.0** and avgLogprob −0.95 → low-confidence guesses; the final "I know that." decoded at temp 0.0, compression 1.07, avgLogprob −0.55 → confident.
+
+### Conclusions
+- **WhisperKit's VAD chunking drops real speech** on call audio → use no-chunking (≤30 s windows sliding) or our own VAD with a conservative threshold + padding.
+- **Wrong forced language ⇒ empty output**; auto-detect ⇒ wrong language. → language must be a user setting (per app / per meeting) with an easy "re-transcribe as…" action; consider trying the 2 configured languages and keeping the higher avgLogprob.
+- **Confidence gate for the hallucination guard:** drop or flag segments with `temperature ≥ 1.0` **and** `compressionRatio > 2.4`, or `avgLogprob < −1.0`, or `noSpeechProb > 0.6`.

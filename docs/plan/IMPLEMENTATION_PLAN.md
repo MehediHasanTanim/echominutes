@@ -118,8 +118,8 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-020 ✅ | Xcode project | `EchoMinutes` app target, bundle ID `com.tanimkabir.echominutes`, `LSUIElement=YES`, Hardened Runtime, entitlements (`audio-input`), Info.plist usage strings, Swift 6 strict concurrency | 2 | S0 |
 | EM-021 ✅ | Local Swift packages | Create `EMCore, EMDetection, EMAudio, EMSession, EMStorage, EMTranscription, EMSummarization, EMJobs, EMExport, EMUI` with test targets; wire into app | 2 | EM-020 |
 | EM-022 ✅ | EMCore models | `SessionID`, `Session`, `SessionStatus`, `TrackKind`, `Speaker`, `TranscriptSegment`, `Summary`, `ActionItem`, `Bookmark`, `AppRule`, `ProviderID`, error types, injectable `Clock` | 3 | EM-021 |
-| EM-023 | Database & migration v1 | GRDB `DatabasePool`, WAL, migration v1 = full schema from Tech Design §11.2 incl. `search_fts` | 3 | EM-022 |
-| EM-024 | Repositories | `SessionRepository`, `TranscriptRepository`, `SummaryRepository`, `JobRepository`, `SettingsRepository`; FTS index maintenance; unit tests with in-memory DB | 4 | EM-023 |
+| EM-023 ✅ | Database & migration v1 | GRDB `DatabasePool`, WAL, migration v1 = full schema from Tech Design §11.2 incl. `search_fts` | 3 | EM-022 |
+| EM-024 ✅ | Repositories | `SessionRepository`, `TranscriptRepository`, `SummaryRepository`, `JobRepository`, `SettingsRepository`; FTS index maintenance; unit tests with in-memory DB | 4 | EM-023 |
 | EM-025 ✅ | FileStore | App Support paths, per-session folder create/delete, `0700` perms, free-space query helper | 2 | EM-021 |
 | EM-026 ✅ | KeychainStore | set/get/delete per `ProviderID`, `WhenUnlockedThisDeviceOnly`; unit tests (keychain test service name) | 2 | EM-022 |
 | EM-027 ✅ | Logging | `Log` facade over `os.Logger` with categories; secret-redaction helper + test | 1 | EM-021 |

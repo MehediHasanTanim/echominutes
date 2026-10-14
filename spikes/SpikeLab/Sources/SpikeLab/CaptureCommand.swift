@@ -66,6 +66,9 @@ final class ProcessTapRecorder {
     private var writeErrors = 0
     private var callbacks = 0          // IOProc invocations (total)
     private var emptyCallbacks = 0     // invocations that carried 0 bytes
+    private var tappedPIDs = Set<pid_t>()
+    private var reportedNew = Set<pid_t>()
+    private var lastOutputLine = ""
     private var lastCallbacks = 0, lastEmpty = 0, lastFrames: Int64 = 0
 
     init(needle: String?, global: Bool) { self.needle = needle; self.global = global }
@@ -110,6 +113,7 @@ final class ProcessTapRecorder {
             Log.line("Target processes (\(targets.count)):")
             for t in targets { Log.line("   pid \(t.pid)  \(t.bundleID.isEmpty ? "-" : t.bundleID)  [\(t.appName)/\(t.exe)]") }
             desc = SLMakeMixdownTap(targets.map { NSNumber(value: $0.objectID) })
+            tappedPIDs = Set(targets.map(\.pid))
             label = targets.first!.appName.replacingOccurrences(of: " ", with: "")
         }
         desc.name = "SpikeLab capture"
@@ -213,8 +217,27 @@ final class ProcessTapRecorder {
                 Log.warn(cb == 0 ? "No IO callbacks in last 2 s — aggregate device not running"
                                  : "\(cb) IO callbacks, \(empty) empty, 0 audio frames — target app is not producing audio")
             }
+            self.checkTargetProcesses()
             self.lastCallbacks = self.callbacks; self.lastEmpty = self.emptyCallbacks; self.lastFrames = self.framesWritten
             self.heartbeat()
+        }
+    }
+
+    /// EM-006 diagnostic: which matching processes are producing audio right now, and did a new one
+    /// appear after the tap was created (it would NOT be captured — production must rebuild the tap, EM-043).
+    private func checkTargetProcesses() {
+        guard !global else { return }
+        let current = allProcesses().filter { matches($0) && $0.pid != getpid() }
+        for t in current where !tappedPIDs.contains(t.pid) && !reportedNew.contains(t.pid) {
+            reportedNew.insert(t.pid)
+            Log.warn("NEW process appeared after tap was created (not captured): pid \(t.pid) \(t.bundleID) [\(t.appName)/\(t.exe)]")
+        }
+        let playing = current.filter { (CA.uint32($0.objectID, kAudioProcessPropertyIsRunningOutput) ?? 0) != 0 }
+            .map { "\($0.exe)(\($0.pid))\(tappedPIDs.contains($0.pid) ? "" : " ⚠︎NOT TAPPED")" }
+        let line = playing.isEmpty ? "none" : playing.joined(separator: ", ")
+        if line != lastOutputLine {
+            Log.line("Target processes with output running: \(line)")
+            lastOutputLine = line
         }
     }
 

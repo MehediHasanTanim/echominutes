@@ -158,15 +158,15 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-050 | ChunkWriter | Serial queue drains rings every 100 ms; `AVAudioConverter` → 48 kHz mono; AAC 64 kbps; rotate 30-s `.m4a` chunks per track | 5 | EM-046 |
-| EM-051 | Timeline alignment | Store first-sample host time per chunk; insert silence for gaps so tracks share t=0; unit test with synthetic offset tracks | 3 | EM-050 |
-| EM-052 | Session manifest | `manifest.json` (tracks, chunks, anchors, markers, health metrics) written atomically on each rotation | 2 | EM-050 |
-| EM-053 | Pre-roll drain | Candidate mode keeps last N s in ring only; `beginPersisting()` drains pre-roll then continues live | 2 | EM-050 |
-| EM-054 | FinalizeAudioJob | Concatenate chunks (`AVMutableComposition`, passthrough) → `mic.m4a`, `system.m4a`; mixdown `mixed.m4a`; waveform peaks `waveform.bin`; verify durations; delete chunks | 4 | EM-052 |
-| EM-055 | Manual recording UI | Menu bar Start (pick app) / Pause / Stop / Discard; elapsed timer; session row created with status transitions | 3 | EM-054 |
-| EM-056 | Crash recovery | On launch: sessions in `recording/paused/finalizing` → `interrupted`; "Recover" runs FinalizeAudioJob on existing chunks | 2 | EM-054 |
-| EM-057 | Disk guard | Check before rotation: warn < 2 GB, safe-stop < 500 MB with notification | 1 | EM-050 |
-| EM-058 | Manual test pass | Record 3 real calls (each app); kill app mid-call → recover; check sync by clapping test | 2 | all above |
+| EM-050 ✅ | ChunkWriter | Serial queue drains rings every 100 ms; `AVAudioConverter` → 48 kHz mono; AAC 64 kbps; rotate 30-s `.m4a` chunks per track | 5 | EM-046 |
+| EM-051 ✅ | Timeline alignment | Store first-sample host time per chunk; insert silence for gaps so tracks share t=0; unit test with synthetic offset tracks | 3 | EM-050 |
+| EM-052 ✅ | Session manifest | `manifest.json` (tracks, chunks, anchors, markers, health metrics) written atomically on each rotation | 2 | EM-050 |
+| EM-053 ✅ | Pre-roll drain | Candidate mode keeps last N s in ring only; `beginPersisting()` drains pre-roll then continues live | 2 | EM-050 |
+| EM-054 ✅ | FinalizeAudioJob | Concatenate chunks (`AVMutableComposition`, passthrough) → `mic.m4a`, `system.m4a`; mixdown `mixed.m4a`; waveform peaks `waveform.bin`; verify durations; delete chunks | 4 | EM-052 |
+| EM-055 ✅ | Manual recording UI | Menu bar Start (pick app) / Pause / Stop / Discard; elapsed timer; session row created with status transitions | 3 | EM-054 |
+| EM-056 ✅ | Crash recovery | On launch: sessions in `recording/paused/finalizing` → `interrupted`; "Recover" runs FinalizeAudioJob on existing chunks | 2 | EM-054 |
+| EM-057 ✅ | Disk guard | Check before rotation: warn < 2 GB, safe-stop < 500 MB with notification | 1 | EM-050 |
+| EM-058 ✅ | Manual test pass | Record 3 real calls (each app); kill app mid-call → recover; check sync by clapping test | 2 | all above |
 | | **Sprint total** | | **24** | |
 
 **Demo:** manual recording of a Teams call → playable `mixed.m4a` with both voices in sync; force-quit loses ≤ 30 s.

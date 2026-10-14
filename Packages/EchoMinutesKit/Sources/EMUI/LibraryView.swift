@@ -77,6 +77,7 @@ struct SessionRowView: View {
 }
 
 struct SessionDetailPlaceholder: View {
+    @Environment(AppState.self) private var state
     let session: Session
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -85,8 +86,22 @@ struct SessionDetailPlaceholder: View {
             Text("\(session.startedAt.formatted(date: .complete, time: .shortened)) · \(SessionGrouping.durationText(session))")
                 .foregroundStyle(.secondary)
             Divider()
-            Text("Player, transcript, summary and action items arrive in Sprint 11.")
-                .foregroundStyle(.secondary)
+            switch session.status {
+            case .ready:
+                if let dir = state.paths?.sessionDir(session.id) { SessionAudioView(session: session, directory: dir).id(session.id) }
+            case .interrupted:
+                Label("This recording was interrupted (app quit or crashed).", systemImage: "exclamationmark.triangle")
+                Button("Recover recording") { Task { await state.recoverSession(session.id) } }
+            case .finalizing:
+                ProgressView("Saving recording…")
+            case .failed:
+                Label("Saving this recording failed.", systemImage: "xmark.octagon").foregroundStyle(.red)
+                Button("Try again") { Task { await state.recoverSession(session.id) } }
+            default:
+                Text("Recording in progress…").foregroundStyle(.secondary)
+            }
+            Text("Transcript, summary and action items arrive in later sprints.")
+                .font(.caption).foregroundStyle(.secondary)
             Spacer()
         }
         .padding(24)

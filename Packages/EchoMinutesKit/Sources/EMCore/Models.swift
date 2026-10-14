@@ -197,3 +197,16 @@ public enum ProviderID: String, Codable, Sendable, CaseIterable, Identifiable {
     public var isLocal: Bool { self == .ollama }
     public var requiresAPIKey: Bool { !isLocal && self != .openAICompatible }
 }
+
+// MARK: - Audio files of a session
+
+public struct AudioTrack: Codable, Sendable, Equatable {
+    public var sessionID: SessionID
+    public var kind: TrackKind
+    public var fileName: String          // relative to the session folder, e.g. "mixed.m4a"
+    public var durationMs: Int
+    public var sizeBytes: Int64
+    public init(sessionID: SessionID, kind: TrackKind, fileName: String, durationMs: Int, sizeBytes: Int64) {
+        self.sessionID = sessionID; self.kind = kind; self.fileName = fileName; self.durationMs = durationMs; self.sizeBytes = sizeBytes
+    }
+}

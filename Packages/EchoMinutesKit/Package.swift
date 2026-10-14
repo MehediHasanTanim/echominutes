@@ -17,7 +17,7 @@ let modules: [(name: String, deps: [String], external: [Target.Dependency])] = [
     ("EMSummarization", ["EMCore"], []),
     ("EMJobs", ["EMCore", "EMStorage"], []),
     ("EMExport", ["EMCore"], []),
-    ("EMUI", ["EMCore", "EMStorage", "EMAudio"], []),
+    ("EMUI", ["EMCore", "EMStorage", "EMAudio", "EMSession"], []),
 ]
 
 let package = Package(

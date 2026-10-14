@@ -17,8 +17,7 @@ public struct MenuContentView: View {
         if let err = state.startupError { Text("⚠︎ \(err)") }
         Divider()
 
-        Button("Start Recording Now") {}          // EM-055
-            .disabled(true)
+        RecordingMenuSection()
         Divider()
 
         if !state.recentSessions.isEmpty {

@@ -63,6 +63,28 @@ public struct SessionRepository: Sendable {
         }
     }
 
+    /// Replaces the finalized audio files of a session (EM-054).
+    public func saveTracks(_ id: SessionID, _ tracks: [AudioTrack]) throws {
+        try db.writer.write { db in
+            try db.execute(sql: "DELETE FROM audio_tracks WHERE session_id = ?", arguments: [id.description])
+            for t in tracks {
+                try db.execute(sql: """
+                    INSERT INTO audio_tracks (id, session_id, kind, path, codec, sample_rate, duration_ms, size_bytes)
+                    VALUES (?, ?, ?, ?, 'aac', 48000, ?, ?)
+                    """, arguments: [UUID().uuidString, id.description, t.kind.rawValue, t.fileName, t.durationMs, t.sizeBytes])
+            }
+        }
+    }
+
+    public func tracks(_ id: SessionID) throws -> [AudioTrack] {
+        try db.writer.read { db in
+            try Row.fetchAll(db, sql: "SELECT * FROM audio_tracks WHERE session_id = ? ORDER BY kind", arguments: [id.description]).compactMap { r in
+                guard let kind = TrackKind(rawValue: r["kind"]) else { return nil }
+                return AudioTrack(sessionID: id, kind: kind, fileName: r["path"], durationMs: r["duration_ms"] ?? 0, sizeBytes: r["size_bytes"] ?? 0)
+            }
+        }
+    }
+
     public func addBookmark(_ b: Bookmark) throws { try db.writer.write { try BookmarkRow(b).insert($0) } }
     public func bookmarks(_ id: SessionID) throws -> [Bookmark] {
         try db.writer.read { try BookmarkRow.fetchAll($0, sql: "SELECT * FROM bookmarks WHERE session_id = ? ORDER BY at_ms", arguments: [id.description]).map(\.model) }

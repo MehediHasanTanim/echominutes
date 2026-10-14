@@ -1,4 +1,5 @@
 import EMCore
+import EMSession
 import EMStorage
 import Foundation
 import Observation
@@ -37,13 +38,24 @@ public final class AppState {
     public var selectedSessionID: SessionID?
     public private(set) var sessions: [Session] = []
     public private(set) var startupError: String?
+    public var recording: ManualRecorder.State = .idle
+    public var lastError: String?
     public let paths: AppPaths?
     public let database: AppDatabase?
+    public let recorder: ManualRecorder?
+    public let rules: DetectionRules?
 
-    public init(paths: AppPaths?, database: AppDatabase?, startupError: String? = nil) {
+    public init(paths: AppPaths?, database: AppDatabase?, startupError: String? = nil, rules: DetectionRules? = DetectionRules.bundled()) {
         self.paths = paths
         self.database = database
         self.startupError = startupError
+        self.rules = rules
+        if let paths, let database {
+            recorder = ManualRecorder(paths: paths, db: database)
+            ManualRecorder.markInterrupted(db: database)          // EM-056: crash recovery at launch
+        } else {
+            recorder = nil
+        }
         reloadSessions()
     }
 

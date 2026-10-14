@@ -27,6 +27,11 @@ struct EchoMinutesApp: App {
         }
         .windowResizability(.contentSize)
 
+        Window("Detection Monitor", id: DetectionMonitorView.windowID) {
+            DetectionMonitorView()
+        }
+        .defaultSize(width: 720, height: 600)
+
         Settings {
             SettingsView().environment(state)
         }

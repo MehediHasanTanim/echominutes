@@ -36,6 +36,10 @@ public struct MenuContentView: View {
             openWindow(id: DebugCaptureView.windowID)
             NSApp.activate()
         }
+        Button("Debug: Detection Monitor…") {
+            openWindow(id: DetectionMonitorView.windowID)
+            NSApp.activate()
+        }
         #endif
         Button("Open Library…") { showLibrary() }
             .keyboardShortcut("l")

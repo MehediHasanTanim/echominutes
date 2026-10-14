@@ -179,14 +179,14 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-060 | DetectionRules.json | Bundled rules (Teams, Zoom, WhatsApp + P1 apps) from spike findings; loader + user overrides from `app_rules` table | 2 | EM-008, EM-024 |
-| EM-061 | AudioProcessMonitor | Actor with process-list + per-process input/output listeners → `AsyncStream<[Activity]>` snapshots | 4 | EM-041 |
-| EM-062 | AppWatcher | `NSWorkspace` launch/terminate + sleep/wake notifications → events | 1 | EM-021 |
-| EM-063 | Activity → MeetingSignal | Attribute activity to watched apps (prefix match, own-PID exclusion), emit `micStarted/micStopped/outputChanged/appTerminated/systemWillSleep` | 3 | EM-060, EM-061 |
-| EM-064 | RulesEngine | Modes auto/ask/never, private hours, per-app debounce/grace, concurrent-call policy | 3 | EM-063 |
-| EM-065 | SessionCoordinator state machine | Idle → Candidate → Recording ⇄ Paused → Finalizing; Discard; timers via injected `Clock` | 5 | EM-064 |
-| EM-066 | State machine test suite | Scripted scenarios: voice note (ignored), normal call, mute 5 min, mic off but output on, app crash, sleep, two apps at once, manual override | 4 | EM-065 |
-| EM-067 | Detection reason logging | Reason codes (`IGNORED_DEBOUNCE`, `STARTED_AUTO`, `ENDED_GRACE` …) logged per decision | 1 | EM-065 |
+| EM-060 ✅ | DetectionRules.json | Bundled rules (Teams, Zoom, WhatsApp + P1 apps) from spike findings; loader + user overrides from `app_rules` table | 2 | EM-008, EM-024 |
+| EM-061 ✅ | AudioProcessMonitor | Actor with process-list + 1 s poll (per-process listeners don't fire on macOS 26) → `AsyncStream<ActivitySnapshot>`; debug Detection Monitor window | 4 | EM-041 |
+| EM-062 ✅ | AppWatcher | `NSWorkspace` launch/terminate + sleep/wake notifications → events | 1 | EM-021 |
+| EM-063 ✅ | Activity → MeetingSignal | Attribute activity to watched apps (prefix match, own-PID exclusion), emit `micStarted/micStopped/outputChanged/appTerminated/systemWillSleep` | 3 | EM-060, EM-061 |
+| EM-064 ✅ | RulesEngine | Modes auto/ask/never, private hours, per-app debounce/grace, concurrent-call policy | 3 | EM-063 |
+| EM-065 ✅ | SessionCoordinator state machine | Idle → Candidate → Recording ⇄ Paused → Finalizing; Discard; timers via injected `Clock` | 5 | EM-064 |
+| EM-066 ✅ | State machine test suite | Scripted scenarios: voice note (ignored), normal call, mute 5 min, mic off but output on, app crash, sleep, two apps at once, manual override | 4 | EM-065 |
+| EM-067 ✅ | Detection reason logging | Reason codes (`IGNORED_DEBOUNCE`, `STARTED_AUTO`, `ENDED_GRACE` …) logged per decision | 1 | EM-065 |
 | | **Sprint total** | | **23** | |
 
 **Demo:** test suite green; debug window shows live signals and the state machine reacting to a real call (no recording yet).

@@ -219,15 +219,15 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-080 | JobQueue | DB-backed actor; enqueue/claim/complete/fail; resume at launch; concurrency limits (1 STT, 2 LLM); exponential backoff | 4 | EM-024 |
-| EM-081 | Pipeline chaining | `finalizeAudio → transcribe → summarize`; session status updates per stage | 1 | EM-080, EM-054 |
-| EM-082 | TranscriptionEngine protocol | `prepare`, `transcribe(file:options:progress:)`, `RawSegment`, `STTOptions` | 1 | EM-022 |
-| EM-083 | ModelManager | Download on first use (WhisperKit downloader) with progress/resume; list installed, size, delete; "Optimizing model…" first-load state | 4 | EM-011 |
-| EM-084 | WhisperKitEngine | Load model, transcribe file, language auto/forced, custom vocabulary prompt, segment timestamps, cancellation | 4 | EM-082, EM-083 |
-| EM-085 | VAD | Speech-region detection to skip silence; map region offsets back to session timeline | 3 | EM-084 |
-| EM-086 | Hallucination guard | Drop high no-speech-prob segments and repeated n-gram loops; unit tests with fixtures | 2 | EM-084 |
-| EM-087 | Transcription settings UI | Engine (local), model picker + download button/progress, language, custom vocabulary | 2 | EM-083 |
-| EM-088 | Power policy | Defer heavy STT on battery < 20% / Low Power Mode unless "Transcribe now" | 1 | EM-080 |
+| EM-080 ✅ | JobQueue | DB-backed actor; enqueue/claim/complete/fail; resume at launch; concurrency limits (1 STT, 2 LLM); exponential backoff | 4 | EM-024 |
+| EM-081 ✅ | Pipeline chaining | `finalizeAudio → transcribe → summarize`; session status updates per stage | 1 | EM-080, EM-054 |
+| EM-082 ✅ | TranscriptionEngine protocol | `prepare`, `transcribe(file:options:progress:)`, `RawSegment`, `STTOptions` | 1 | EM-022 |
+| EM-083 ✅ | ModelManager | Download on first use (WhisperKit downloader) with progress/resume; list installed, size, delete; "Optimizing model…" first-load state | 4 | EM-011 |
+| EM-084 ✅ | WhisperKitEngine | Load model, transcribe file, language auto/forced, custom vocabulary prompt, segment timestamps, cancellation | 4 | EM-082, EM-083 |
+| EM-085 ✅ | VAD | Speech-region detection to skip silence; map region offsets back to session timeline | 3 | EM-084 |
+| EM-086 ✅ | Hallucination guard | Drop high no-speech-prob segments and repeated n-gram loops; unit tests with fixtures | 2 | EM-084 |
+| EM-087 ✅ | Transcription settings UI | Engine (local), model picker + download button/progress, language, custom vocabulary | 2 | EM-083 |
+| EM-088 ✅ | Power policy | Defer heavy STT on battery < 20% / Low Power Mode unless "Transcribe now" | 1 | EM-080 |
 | | **Sprint total** | | **22** | |
 
 **Demo:** after a call ends, both tracks transcribe automatically with progress shown; quitting mid-job resumes on relaunch.

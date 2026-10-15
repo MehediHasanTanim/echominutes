@@ -117,15 +117,20 @@ public actor JobRunner {
 
     func drain() {
         for kind in handlers.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
-            while (running.values.filter { $0.kind == kind }.count) < (limits[kind] ?? 1) {
-                guard let job = claim(kind) else { break }
-                launch(job)
+            claiming: while (running.values.filter { $0.kind == kind }.count) < (limits[kind] ?? 1) {
+                switch claim(kind) {
+                case .run(let job): launch(job)
+                case .deferred: continue claiming   // put back with a later not_before; look at the next job
+                case .none: break claiming
+                }
             }
         }
     }
 
-    private func claim(_ kind: Job.Kind) -> Job? {
-        guard let job = try? repo.claimNext(kinds: [kind], now: clock.now) else { return nil }
+    private enum Claim { case run(Job), deferred, none }
+
+    private func claim(_ kind: Job.Kind) -> Claim {
+        guard let job = try? repo.claimNext(kinds: [kind], now: clock.now) else { return .none }
         if heavyKinds.contains(kind), !(job.sessionID.map { forced.contains($0) } ?? false) {
             let p = power()
             if p.shouldDeferHeavyWork {
@@ -135,10 +140,10 @@ public actor JobRunner {
                 try? repo.uncountAttempt(job.id)
                 continuation.yield(.deferred(job, reason: p.reason ?? "power saving"))
                 Log.info(.jobs, "Deferred \(kind.rawValue) (\(p.reason ?? "power")) until \(until)")
-                return nil
+                return .deferred
             }
         }
-        return job
+        return .run(job)
     }
 
     private func launch(_ job: Job) {

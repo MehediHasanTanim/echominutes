@@ -90,7 +90,7 @@ struct JobRunnerTests {
         let events = await waitFor(runner) { es in es.filter { if case .failed = $0 { true } else { false } }.count == 2 }
         let fails = events.compactMap { e -> Bool? in if case .failed(_, _, let retry) = e { retry } else { nil } }
         #expect(fails == [true, false])
-        let ja = try #require(JobRepository(db).jobs(for: a).first)
+        let ja = try #require(try JobRepository(db).jobs(for: a).first)
         #expect(ja.status == .queued)                                   // waits for backoff
         #expect((ja.notBefore ?? .distantPast) > Date().addingTimeInterval(20))
         #expect(try JobRepository(db).jobs(for: b).first?.status == .failed)
@@ -104,7 +104,10 @@ struct JobRunnerTests {
         let db = try AppDatabase.inMemory()
         let h = ScriptedHandler([.slow(.milliseconds(150)), .slow(.milliseconds(150)), .slow(.milliseconds(150))])
         let runner = JobRunner(db: db, handlers: [.transcribe: h], power: { PowerState(onBattery: false, batteryPercent: nil, lowPowerMode: false) })
-        for _ in 0..<3 { await runner.enqueue(.transcribe, sessionID: try session(db)) }
+        for _ in 0..<3 {
+            let id = try session(db)
+            await runner.enqueue(.transcribe, sessionID: id)
+        }
         await runner.start()
         _ = await waitFor(runner) { finishedCount($0) == 3 }
         #expect(await h.runs.count == 3)
@@ -123,7 +126,7 @@ struct JobRunnerTests {
         let events = await waitFor(runner) { es in finishedCount(es) == 1 && es.contains { if case .deferred = $0 { true } else { false } } }
         #expect(events.contains { if case .deferred(let j, let r) = $0 { j.sessionID == a && r.contains("12") } else { false } })
         #expect(try JobRepository(db).jobs(for: b).first?.status == .done)
-        let ja = try #require(JobRepository(db).jobs(for: a).first)
+        let ja = try #require(try JobRepository(db).jobs(for: a).first)
         #expect(ja.status == .queued && ja.attempts == 0)                 // deferral doesn't use up retries
         await runner.stop()
     }
@@ -201,7 +204,7 @@ struct TranscribeJobHandlerTests {
         let speakers = try TranscriptRepository(db).speakers(s.id)
         #expect(speakers.first?.isMe == true)
         #expect(segs[0].speakerID == speakers.first { $0.isMe }?.id)
-        let after = try #require(SessionRepository(db).fetch(s.id))
+        let after = try #require(try SessionRepository(db).fetch(s.id))
         #expect(after.status == .ready)
         #expect(after.sttEngine == "echo-test")
         #expect(log.messages.contains { $0.contains("Optimizing") })

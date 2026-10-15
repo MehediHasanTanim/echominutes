@@ -71,9 +71,15 @@ public struct TranscribeJobHandler: JobHandler {
                 }
             }
             segments.sort { ($0.startMs, $0.track.rawValue) < ($1.startMs, $1.track.rawValue) }
+            let deduped = EchoDeduplicator.dedupe(segments)
+            if !deduped.removed.isEmpty {
+                Log.info(.stt, "Echo: removed \(deduped.removed.count) mic segment(s) that repeated the call audio")
+            }
+            segments = deduped.segments
             try TranscriptRepository(db).replace(sid, speakers: [me, others], segments: segments)
 
             var s = try sessions.fetch(sid) ?? session
+            if !deduped.removed.isEmpty { s.echoRisk = true }
             s.sttEngine = engine.identifier
             s.status = .ready
             try sessions.update(s)

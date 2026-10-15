@@ -1,4 +1,5 @@
 import AVFoundation
+import EMCore
 import Foundation
 import Testing
 @testable import EMTranscription
@@ -140,4 +141,57 @@ final class ProgressLog: @unchecked Sendable {
     private var v: [Double] = []
     func add(_ x: Double) { lock.withLock { v.append(x) } }
     var values: [Double] { lock.withLock { v } }
+}
+
+@Suite("EchoDeduplicator")
+struct EchoDedupTests {
+    let sid = SessionID()
+    func seg(_ track: TrackKind, _ s: Double, _ e: Double, _ text: String) -> TranscriptSegment {
+        TranscriptSegment(sessionID: sid, speakerID: track.rawValue, track: track, startMs: Int(s * 1000), endMs: Int(e * 1000), text: text)
+    }
+
+    /// The Teams "test call" transcript from 2026-10-15 (playback through the Mac speakers).
+    @Test func teamsSpeakerEchoFixture() {
+        let input = [
+            seg(.mic, 0, 5, "To test your call quality, record a short message after the beep."),
+            seg(.system, 0, 5, "To test your call quality, record a short message after the beep."),
+            seg(.system, 6, 9, "Then your message will be played back to you."),
+            seg(.mic, 7, 10, "Then your message will be played back to you."),
+            seg(.mic, 10, 17, "Hello, this is another test call for testing my EcoMinutes utility tool."),
+            seg(.mic, 18, 19, "Thank you."),
+            seg(.mic, 21, 24, "Hello, this is another test call for testing my Ecominutes utility tool."),
+            seg(.system, 24, 30, "Hello, this is another test call for testing my Ecominutes utility tool. Thank you."),
+            seg(.mic, 30, 31, "Thank you."),
+            seg(.system, 33, 37, "If you're happy with the quality of your message, then you've configured Teams correctly."),
+            seg(.mic, 33, 37, "If you're happy with the quality of your message, then you've configured Teams correctly."),
+            seg(.system, 37, 40, "If not, check your device settings and try again."),
+            seg(.mic, 37, 40, "If not, check your device settings and try again."),
+        ]
+        let r = EchoDeduplicator.dedupe(input)
+        let mine = r.segments.filter { $0.track == .mic }.map { "\($0.startMs / 1000) \($0.text)" }
+        #expect(mine == ["10 Hello, this is another test call for testing my EcoMinutes utility tool.", "18 Thank you."])
+        #expect(r.removed.count == 6)
+        #expect(r.segments.filter { $0.track == .system }.count == 5)       // the call track is never touched
+    }
+
+    @Test func overlappingButDifferentSpeechIsKept() {
+        let r = EchoDeduplicator.dedupe([
+            seg(.system, 10, 14, "Can you send me the budget numbers by Friday?"),
+            seg(.mic, 12, 15, "Sure, I will share the spreadsheet tomorrow morning."),
+        ])
+        #expect(r.removed.isEmpty)
+    }
+
+    @Test func sameWordsFarApartAreKept() {
+        let r = EchoDeduplicator.dedupe([
+            seg(.system, 10, 12, "Sounds good, thank you."),
+            seg(.mic, 60, 62, "Sounds good, thank you."),
+        ])
+        #expect(r.removed.isEmpty)
+    }
+
+    @Test func lonelyYouIsAHallucination() {
+        let r = HallucinationGuard.filter([RawSegment(start: 40, end: 41, text: " you"), RawSegment(start: 41, end: 42, text: "Thank you, see you.")])
+        #expect(r.kept.map(\.text) == ["Thank you, see you."])
+    }
 }

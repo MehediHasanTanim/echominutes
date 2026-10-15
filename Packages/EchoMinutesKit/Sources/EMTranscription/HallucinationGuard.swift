@@ -19,6 +19,9 @@ public enum HallucinationGuard {
         "[silence]", "(silence)", "[no speech]", "♪",
     ]
 
+    /// Whole-segment outputs Whisper emits on near-silence (the trailing "you" at the end of a call).
+    static let exactHallucinations: Set<String> = ["you", "bye", "so", "uh", "um", "hmm"]
+
     public static func filter(_ segments: [RawSegment]) -> Result {
         var kept: [RawSegment] = [], dropped: [(RawSegment, Reason)] = []
         var repeatRun = 0
@@ -29,6 +32,7 @@ public enum HallucinationGuard {
             if s.temperature >= 1.0 && s.compressionRatio > 2.4 { dropped.append((s, .fallbackLoop)); continue }
             if s.avgLogprob < -1.0 { dropped.append((s, .lowConfidence)); continue }
             if s.noSpeechProb > 0.6 { dropped.append((s, .noSpeech)); continue }
+            if exactHallucinations.contains(norm) { dropped.append((s, .blacklisted)); continue }
             let lower = s.text.lowercased()
             if blacklist.contains(where: { lower.contains($0) }) && norm.split(separator: " ").count <= 6 {
                 dropped.append((s, .blacklisted)); continue

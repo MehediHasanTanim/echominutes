@@ -5,6 +5,7 @@ import PackageDescription
 let grdb: Target.Dependency = .product(name: "GRDB", package: "GRDB.swift")
 let atomics: Target.Dependency = .product(name: "Atomics", package: "swift-atomics")
 let tapShim: Target.Dependency = .target(name: "EMTapShim")
+let whisperKit: Target.Dependency = .product(name: "WhisperKit", package: "WhisperKit")
 
 /// (module, internal deps, external deps)
 let modules: [(name: String, deps: [String], external: [Target.Dependency])] = [
@@ -13,11 +14,11 @@ let modules: [(name: String, deps: [String], external: [Target.Dependency])] = [
     ("EMDetection", ["EMCore", "EMAudio"], []),
     ("EMAudio", ["EMCore"], [atomics, tapShim]),
     ("EMSession", ["EMCore", "EMDetection", "EMAudio", "EMStorage"], []),
-    ("EMTranscription", ["EMCore"], []),
+    ("EMTranscription", ["EMCore"], [whisperKit]),
     ("EMSummarization", ["EMCore"], []),
-    ("EMJobs", ["EMCore", "EMStorage"], []),
+    ("EMJobs", ["EMCore", "EMStorage", "EMTranscription"], []),
     ("EMExport", ["EMCore"], []),
-    ("EMUI", ["EMCore", "EMStorage", "EMAudio", "EMDetection", "EMSession"], []),
+    ("EMUI", ["EMCore", "EMStorage", "EMAudio", "EMDetection", "EMSession", "EMJobs", "EMTranscription"], []),
 ]
 
 let package = Package(
@@ -27,6 +28,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
+        // Local speech-to-text (Core ML Whisper) — version proven in spike S3.
+        .package(url: "https://github.com/argmaxinc/WhisperKit.git", .upToNextMinor(from: "0.18.0")),
     ],
     targets: [
         // Objective-C shim: CATapDescription from NSNumber process-object IDs (proven in SpikeLab TapShim).

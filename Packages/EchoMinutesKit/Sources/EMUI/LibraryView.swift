@@ -87,8 +87,10 @@ struct SessionDetailPlaceholder: View {
                 .foregroundStyle(.secondary)
             Divider()
             switch session.status {
-            case .ready:
+            case .ready, .transcribing, .summarizing:
                 if let dir = state.paths?.sessionDir(session.id) { SessionAudioView(session: session, directory: dir).id(session.id) }
+                Divider()
+                TranscriptSection(session: session)
             case .interrupted:
                 Label("This recording was interrupted (app quit or crashed).", systemImage: "exclamationmark.triangle")
                 Button("Recover recording") { Task { await state.recoverSession(session.id) } }
@@ -100,9 +102,7 @@ struct SessionDetailPlaceholder: View {
             default:
                 Text("Recording in progress…").foregroundStyle(.secondary)
             }
-            Text("Transcript, summary and action items arrive in later sprints.")
-                .font(.caption).foregroundStyle(.secondary)
-            Spacer()
+            Spacer(minLength: 0)
         }
         .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -50,6 +50,7 @@ extension AppState {
         do {
             let s = try await task.value
             selectedSessionID = s.id
+            recordingSaved(s.id)
         } catch { lastError = error.localizedDescription }
         await syncRecordingState()
         reloadSessions()
@@ -68,7 +69,7 @@ extension AppState {
 
     public func recoverSession(_ id: SessionID) async {
         guard let paths, let database else { return }
-        do { _ = try await ManualRecorder.recover(id, paths: paths, db: database) }
+        do { _ = try await ManualRecorder.recover(id, paths: paths, db: database); recordingSaved(id) }
         catch { lastError = "Recovery failed: \(error.localizedDescription)" }
         reloadSessions()
     }

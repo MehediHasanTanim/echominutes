@@ -74,6 +74,11 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
              category: Category.saved, userInfo: ["sessionID": sessionID.description])
     }
 
+    func transcriptReady(sessionID: SessionID, title: String) {
+        post(id: "transcript-\(sessionID)", title: "Transcript ready", body: title,
+             category: Category.saved, userInfo: ["sessionID": sessionID.description])
+    }
+
     func ask(appID: String, appName: String) {
         post(id: "ask-\(appID)", title: "Record this \(appName) call?",
              body: "Choose Record to save it (the last few seconds are kept). Ignored automatically in 20 s.",

@@ -114,6 +114,7 @@ extension AppState {
         case .saved(let sid, let title, let dur):
             notifier.recordingSaved(sessionID: sid, title: title, durationSec: dur)
             reloadSessions()
+            recordingSaved(sid)
         case .discarded:
             notifier.removeRecordingStarted()
             reloadSessions()

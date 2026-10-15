@@ -10,7 +10,7 @@ public struct SettingsView: View {
             GeneralSettingsView().tabItem { Label("General", systemImage: "gearshape") }
             DetectionSettingsView().tabItem { Label("Detection", systemImage: "dot.radiowaves.left.and.right") }
             PlaceholderSettings(title: "Recording", detail: "Input device, quality, echo handling — Sprint 4").tabItem { Label("Recording", systemImage: "record.circle") }
-            PlaceholderSettings(title: "Transcription", detail: "Local model, language, vocabulary — EM-087").tabItem { Label("Transcription", systemImage: "text.bubble") }
+            TranscriptionSettingsView().tabItem { Label("Transcription", systemImage: "text.bubble") }
             PlaceholderSettings(title: "AI Summary", detail: "Provider, model, templates — Sprint 10").tabItem { Label("AI Summary", systemImage: "sparkles") }
             PlaceholderSettings(title: "Providers", detail: "API keys (stored in Keychain) with Test connection — EM-106").tabItem { Label("Providers", systemImage: "key") }
             PlaceholderSettings(title: "Privacy & Storage", detail: "Retention, local-only apps, storage usage — EM-133").tabItem { Label("Privacy", systemImage: "lock.shield") }

@@ -208,6 +208,11 @@ public struct Job: Sendable, Equatable, Identifiable {
     public var attempts: Int
     public var lastError: String?
     public var notBefore: Date?
+
+    public init(id: String, sessionID: SessionID?, kind: Kind, status: Status, attempts: Int, lastError: String?, notBefore: Date?) {
+        self.id = id; self.sessionID = sessionID; self.kind = kind; self.status = status
+        self.attempts = attempts; self.lastError = lastError; self.notBefore = notBefore
+    }
 }
 
 public struct JobRepository: Sendable {
@@ -251,6 +256,19 @@ public struct JobRepository: Sendable {
         try db.writer.write {
             try $0.execute(sql: "UPDATE jobs SET status = ?, last_error = ?, not_before = ?, updated_at = ? WHERE id = ?",
                            arguments: [retryAt == nil ? "failed" : "queued", Redactor.redact(error), retryAt, now, id])
+        }
+    }
+
+    /// A deferral (power saving) shouldn't use up one of the job's retry attempts.
+    public func uncountAttempt(_ id: String) throws {
+        try db.writer.write { try $0.execute(sql: "UPDATE jobs SET attempts = MAX(0, attempts - 1) WHERE id = ?", arguments: [id]) }
+    }
+
+    /// Latest job of a kind for a session (UI: "Transcribing…", "Failed: …").
+    public func latest(_ kind: Job.Kind, sessionID: SessionID) throws -> Job? {
+        try db.writer.read {
+            try Row.fetchOne($0, sql: "SELECT * FROM jobs WHERE session_id = ? AND type = ? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                             arguments: [sessionID.description, kind.rawValue]).map(Self.job)
         }
     }
 

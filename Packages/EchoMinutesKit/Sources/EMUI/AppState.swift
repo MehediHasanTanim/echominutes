@@ -1,6 +1,7 @@
 import EMAudio
 import EMCore
 import EMDetection
+import EMJobs
 import EMSession
 import EMStorage
 import Foundation
@@ -68,6 +69,13 @@ public final class AppState {
     @ObservationIgnored var levelTask: Task<Void, Never>?
     @ObservationIgnored var lastActiveSessionID: SessionID?
 
+    // Background jobs: transcription (EM-080…088)
+    public struct JobProgress: Equatable, Sendable { public var fraction: Double; public var message: String }
+    public internal(set) var jobProgress: [SessionID: JobProgress] = [:]
+    public internal(set) var jobNotes: [SessionID: String] = [:]          // last failure / deferral per session
+    public internal(set) var transcriptVersion = 0                         // bumped when a transcript is saved
+    @ObservationIgnored var jobRunner: JobRunner?
+
     public init(paths: AppPaths?, database: AppDatabase?, startupError: String? = nil, rules: DetectionRules? = DetectionRules.bundled()) {
         self.paths = paths
         self.database = database
@@ -93,6 +101,7 @@ public final class AppState {
             state.startDetection()
             state.registerHotKeys()
             MainThreadWatchdog.shared.start()
+            state.startJobs()
             return state
         } catch {
             Log.error(.app, "Storage failed to open: \(error)")

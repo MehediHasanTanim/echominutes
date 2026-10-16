@@ -2,7 +2,8 @@ import Foundation
 
 /// Minimal JSON tree for schemas and request bodies (Codable, Sendable).
 public indirect enum JSONValue: Sendable, Equatable, Codable, ExpressibleByDictionaryLiteral, ExpressibleByArrayLiteral,
-                                ExpressibleByStringLiteral, ExpressibleByBooleanLiteral, ExpressibleByIntegerLiteral {
+                                ExpressibleByStringLiteral, ExpressibleByBooleanLiteral, ExpressibleByIntegerLiteral,
+                                ExpressibleByFloatLiteral {
     case object([String: JSONValue])
     case array([JSONValue])
     case string(String)
@@ -15,6 +16,7 @@ public indirect enum JSONValue: Sendable, Equatable, Codable, ExpressibleByDicti
     public init(stringLiteral value: String) { self = .string(value) }
     public init(booleanLiteral value: Bool) { self = .bool(value) }
     public init(integerLiteral value: Int) { self = .number(Double(value)) }
+    public init(floatLiteral value: Double) { self = .number(value) }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()

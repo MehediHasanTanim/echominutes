@@ -158,7 +158,8 @@ struct EchoEngine: TranscriptionEngine {
     func prepare(status: @escaping @Sendable (EngineStatus) -> Void) async throws { status(.loading); status(.ready) }
     func transcribe(samples: [Float], options: STTOptions, progress: @escaping @Sendable (Double) -> Void) async throws -> [RawSegment] {
         progress(1)
-        return [RawSegment(start: 0.4, end: Double(samples.count) / 16_000 - 0.6, text: "speech in \(options.language)")]
+        let seconds = Int((Double(samples.count) / 16_000).rounded())
+        return [RawSegment(start: 0.4, end: Double(samples.count) / 16_000 - 0.6, text: "speech in \(options.language) for \(seconds) seconds")]
     }
 }
 
@@ -200,7 +201,7 @@ struct TranscribeJobHandlerTests {
         #expect(segs.map(\.track) == [.mic, .system])                    // sorted by time
         #expect(abs(segs[0].startMs - 2_000) < 150)
         #expect(abs(segs[1].startMs - 8_000) < 150)
-        #expect(segs.allSatisfy { $0.text == "speech in bn" })
+        #expect(segs.allSatisfy { $0.text.hasPrefix("speech in bn") })
         let speakers = try TranscriptRepository(db).speakers(s.id)
         #expect(speakers.first?.isMe == true)
         #expect(segs[0].speakerID == speakers.first { $0.isMe }?.id)
@@ -224,11 +225,12 @@ struct TranscribeJobHandlerTests {
     }
 
     @Test func splitsTheCallIntoSpeakersAndKeepsNamesOnRerun() async throws {
-        let (db, paths, s, root) = try makeSession([8...12, 20...24, 30...34])
+        // Different lengths so each line's text differs (identical consecutive lines are treated as hallucinated repeats).
+        let (db, paths, s, root) = try makeSession([8...12, 20...25, 30...36])
         defer { try? FileManager.default.removeItem(at: root) }
-        // Speaker A talks at 8–12 and 30–34, speaker B at 20–24.
-        let turns = [SpeakerTurn(speaker: 5, start: 7.5, end: 12.5), SpeakerTurn(speaker: 2, start: 19.5, end: 24.5),
-                     SpeakerTurn(speaker: 5, start: 29.5, end: 34.5)]
+        // Speaker A talks at 8–12 and 30–36, speaker B at 20–25.
+        let turns = [SpeakerTurn(speaker: 5, start: 7.5, end: 12.5), SpeakerTurn(speaker: 2, start: 19.5, end: 25.5),
+                     SpeakerTurn(speaker: 5, start: 29.5, end: 36.5)]
         let h = TranscribeJobHandler(db: db, paths: paths, settings: { TranscriptionSettings(myName: "Tanim") },
                                      engine: { _ in EchoEngine() }, diarizer: FixedDiarizer(turns: turns))
         let job = Job(id: "j3", sessionID: s.id, kind: .transcribe, status: .running, attempts: 1, lastError: nil, notBefore: nil)

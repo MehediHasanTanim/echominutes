@@ -47,7 +47,8 @@ struct SummarizeJobTests {
         let summary = try #require(try SummaryRepository(db).current(s.id))
         #expect(summary.content?.decisions == ["Approve"])
         #expect(summary.tokensIn == 2_000)
-        #expect(summary.costUSD == (2_000 * 3 + 300 * 15) / 1_000_000)
+        let expectedCost: Double = (2_000.0 * 3 + 300.0 * 15) / 1_000_000             // sonnet: $3 in / $15 out per 1M
+        #expect(abs((summary.costUSD ?? -1) - expectedCost) < 1e-9, "cost \(String(describing: summary.costUSD))")
         let items = try SummaryRepository(db).actionItems(s.id)
         #expect(items.map(\.text) == ["Send the sheet"])
         #expect(items.first?.timestampMs == 12_000)

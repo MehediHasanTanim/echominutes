@@ -15,7 +15,7 @@ final class ScriptedProvider: LLMProvider, @unchecked Sendable {
     private let lock = NSLock()
     private var answers: [Result<String, LLMError>]
     private(set) var requests: [LLMRequest] = []
-    init(_ id: ProviderID = .anthropic, _ answers: [Result<String, LLMError>]) { self.id = id; self.answers = answers }
+    init(_ answers: [Result<String, LLMError>], provider id: ProviderID = .anthropic) { self.id = id; self.answers = answers }
     func listModels() async throws -> [String] { ["m"] }
     func complete(_ request: LLMRequest) async throws -> LLMResponse {
         let next: Result<String, LLMError> = lock.withLock {
@@ -110,7 +110,7 @@ struct PromptTests {
 @Suite("Summarizer")
 struct SummarizerTests {
     @Test func singlePass() async throws {
-        let p = ScriptedProvider([.success(validJSON)])
+        let p = ScriptedProvider([Result.success(validJSON)])
         let out = try await Summarizer(provider: p, model: "claude-x").summarize(meta: meta, lines: lines(10), template: .general)
         #expect(out.content?.title == "Budget sync")
         #expect(out.chunks == 1)
@@ -136,7 +136,7 @@ struct SummarizerTests {
     }
 
     @Test func longMeetingUsesMapReduce() async throws {
-        let p = ScriptedProvider(.ollama, [])                                // 8k window → small budget
+        let p = ScriptedProvider([], provider: .ollama)                                // 8k window → small budget
         let out = try await Summarizer(provider: p, model: "llama3.1", maxOutputTokens: 1024)
             .summarize(meta: meta, lines: lines(600), template: .general)
         #expect(out.chunks > 1)

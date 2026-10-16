@@ -260,14 +260,14 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-100 | LLMProvider protocol & types | `LLMRequest/Response/Message`, `ProviderID`, error taxonomy (invalidKey, rateLimited, quota, network, server, badResponse) | 2 | EM-022 |
-| EM-101 | HTTPClient | URLSession wrapper, timeouts, JSON coding, SSE stream parser, retry hints from `retry-after`; URLProtocol test stubs | 3 | EM-100 |
-| EM-102 | Anthropic adapter | Messages API, headers, structured output, token usage, list models, test connection | 3 | EM-101 |
-| EM-103 | OpenAI adapter | Chat completions with `json_schema`, usage, list models; Azure OpenAI variant (endpoint/deployment/api-version) | 3 | EM-101 |
-| EM-104 | Gemini adapter | `generateContent` with `responseSchema`, usage, list models | 2 | EM-101 |
-| EM-105 | OpenAI-compatible + OpenRouter + Ollama | Custom base URL adapter; Ollama `/api/chat` with `format` schema; localhost-only http allowed | 3 | EM-103 |
-| EM-106 | Providers settings UI | Per provider: enable, masked key field, model dropdown (fetched) + free text, base URL, **Test connection** with clear result; Remove key; Touch ID reveal | 5 | EM-026, EM-102…105 |
-| EM-107 | Default provider selection | Separate defaults for transcription & summary; fallback banner when key missing | 1 | EM-106 |
+| EM-100 ✅ | LLMProvider protocol & types | `LLMRequest/Response/Message`, `ProviderID`, error taxonomy (invalidKey, rateLimited, quota, network, server, badResponse) | 2 | EM-022 |
+| EM-101 ✅ | HTTPClient | URLSession wrapper, timeouts, JSON coding, SSE stream parser, retry hints from `retry-after`; URLProtocol test stubs | 3 | EM-100 |
+| EM-102 ✅ | Anthropic adapter | Messages API, headers, structured output, token usage, list models, test connection | 3 | EM-101 |
+| EM-103 ✅ | OpenAI adapter | Chat completions with `json_schema`, usage, list models; Azure OpenAI variant (endpoint/deployment/api-version) | 3 | EM-101 |
+| EM-104 ✅ | Gemini adapter | `generateContent` with `responseSchema`, usage, list models | 2 | EM-101 |
+| EM-105 ✅ | OpenAI-compatible + OpenRouter + Ollama | Custom base URL adapter; Ollama `/api/chat` with `format` schema; localhost-only http allowed | 3 | EM-103 |
+| EM-106 ✅ | Providers settings UI | Per provider: enable, masked key field, model dropdown (fetched) + free text, base URL, **Test connection** with clear result; Remove key; Touch ID reveal | 5 | EM-026, EM-102…105 |
+| EM-107 ✅ | Default provider selection | Separate defaults for transcription & summary; fallback banner when key missing | 1 | EM-106 |
 | | **Sprint total** | | **22** | |
 
 **Demo:** paste a Claude key → Test connection succeeds and lists models; invalid key shows a friendly error; key visible only in Keychain Access.

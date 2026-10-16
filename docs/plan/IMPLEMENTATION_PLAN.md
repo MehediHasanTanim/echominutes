@@ -240,14 +240,14 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-090 | Track merge | Merge mic + system segments by `start_ms`; mic → speaker "Me" (name from settings) | 2 | EM-084 |
-| EM-091 | Diarizer integration | Chosen diarizer (S4) on `system.m4a` → turns; assign Speaker 1..N by max overlap; fallback to "Others" on failure | 5 | EM-014, EM-090 |
-| EM-092 | Echo detection | Detect built-in speakers output (transport type/data source) → `echo_risk` flag on session | 2 | EM-044 |
+| EM-090 ✅ | Track merge | Merge mic + system segments by `start_ms`; mic → speaker "Me" (name from settings) | 2 | EM-084 |
+| EM-091 ✅ | Diarizer integration | Chosen diarizer (S4) on `system.m4a` → turns; assign Speaker 1..N by max overlap; fallback to "Others" on failure | 5 | EM-014, EM-090 |
+| EM-092 ✅ | Echo detection | Detect built-in speakers output (transport type/data source) → `echo_risk` flag on session | 2 | EM-044 |
 | EM-093 ✅ | Echo de-dup | Pulled into S7 after the first real transcript: word containment ≥ 0.6 + time overlap (±3 s) → drop duplicate mic segments, set `echo_risk`; Teams speaker-test fixture. RMS ratio not needed so far | 3 | EM-015, EM-090 |
-| EM-094 | Persist transcript | Write segments + speakers in one transaction; update FTS; status `summarizing` or `ready` | 2 | EM-090 |
-| EM-095 | Speaker rename | Rename updates `speakers.display_name` (UI hook ready for S11) | 1 | EM-094 |
+| EM-094 ✅ | Persist transcript | Write segments + speakers in one transaction; update FTS; status `summarizing` or `ready` | 2 | EM-090 |
+| EM-095 ✅ | Speaker rename | Rename updates `speakers.display_name` (UI hook ready for S11) | 1 | EM-094 |
 | EM-096 ⏸ | Cloud STT engine (optional) — deferred until EM-097 shows Bengali needs it | `OpenAITranscriptionEngine` (chunk upload ≤ size limit, timestamps) — only if S1 showed Bengali needs it; else defer to Phase 2 | 4 | EM-082, EM-026 |
-| EM-097 | Quality check | Run corpus through full pipeline; record WER-style notes, duplicate rate, speaker accuracy. Checklist: `docs/testing/EM-097-transcript-quality.md` | 3 | all above |
+| EM-097 🔄 | Quality check (open: needs real 3-person / Bengali / speakers calls) | Run corpus through full pipeline; record WER-style notes, duplicate rate, speaker accuracy. Checklist: `docs/testing/EM-097-transcript-quality.md` | 3 | all above |
 | | **Sprint total** | | **22** | |
 
 **Demo:** 3-person Zoom call → transcript with "Me", "Speaker 1", "Speaker 2" and timestamps; no echo duplicates on speakers test.

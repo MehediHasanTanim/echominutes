@@ -12,11 +12,11 @@ public struct SettingsView: View {
             PlaceholderSettings(title: "Recording", detail: "Input device, quality, echo handling — Sprint 4").tabItem { Label("Recording", systemImage: "record.circle") }
             TranscriptionSettingsView().tabItem { Label("Transcription", systemImage: "text.bubble") }
             PlaceholderSettings(title: "AI Summary", detail: "Provider, model, templates — Sprint 10").tabItem { Label("AI Summary", systemImage: "sparkles") }
-            PlaceholderSettings(title: "Providers", detail: "API keys (stored in Keychain) with Test connection — EM-106").tabItem { Label("Providers", systemImage: "key") }
+            ProvidersSettingsView().tabItem { Label("Providers", systemImage: "key") }
             PlaceholderSettings(title: "Privacy & Storage", detail: "Retention, local-only apps, storage usage — EM-133").tabItem { Label("Privacy", systemImage: "lock.shield") }
             PlaceholderSettings(title: "Diagnostics", detail: "Permissions, audio test, log export — EM-132").tabItem { Label("Diagnostics", systemImage: "stethoscope") }
         }
-        .frame(width: 640, height: 480)
+        .frame(width: 760, height: 540)
     }
 }
 

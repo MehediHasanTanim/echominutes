@@ -56,6 +56,8 @@ targets:
         NSMicrophoneUsageDescription: EchoMinutes records your voice during meetings you attend.
         NSAudioCaptureUsageDescription: EchoMinutes records the audio of your meeting apps so remote participants appear in your transcript.
         NSHumanReadableCopyright: © 2026 Tanim Kabir
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true      # Ollama on http://localhost:11434 (EM-105)
     entitlements:
       path: App/EchoMinutes.entitlements
       properties:

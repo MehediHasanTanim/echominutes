@@ -195,3 +195,30 @@ struct EchoDedupTests {
         #expect(r.kept.map(\.text) == ["Thank you, see you."])
     }
 }
+
+@Suite("SpeakerAssigner")
+struct SpeakerAssignerTests {
+    let sid = SessionID()
+    func seg(_ s: Double, _ e: Double) -> TranscriptSegment {
+        TranscriptSegment(sessionID: sid, speakerID: nil, track: .system, startMs: Int(s * 1000), endMs: Int(e * 1000), text: "x")
+    }
+
+    @Test func assignsByMaxOverlapAndNumbersByFirstAppearance() throws {
+        let turns = [SpeakerTurn(speaker: 7, start: 0, end: 10), SpeakerTurn(speaker: 3, start: 10, end: 20),
+                     SpeakerTurn(speaker: 7, start: 20, end: 30)]
+        let a = try #require(SpeakerAssigner.assign([seg(1, 9), seg(8, 18), seg(21, 29), seg(29, 31)], turns: turns))
+        #expect(a.speakerCount == 2)
+        #expect(a.speakerOfSegment == [1, 2, 1, 1])        // 7 appears first → Speaker 1; 8–18 overlaps 3 most
+    }
+
+    @Test func nearestTurnWithinOneSecondElseUnknown() throws {
+        let turns = [SpeakerTurn(speaker: 0, start: 0, end: 5), SpeakerTurn(speaker: 1, start: 10, end: 15)]
+        let a = try #require(SpeakerAssigner.assign([seg(1, 4), seg(5.3, 5.8), seg(7, 8), seg(11, 14)], turns: turns))
+        #expect(a.speakerOfSegment == [1, 1, nil, 2])
+    }
+
+    @Test func singleSpeakerKeepsOthers() {
+        #expect(SpeakerAssigner.assign([seg(1, 4), seg(6, 9)], turns: [SpeakerTurn(speaker: 0, start: 0, end: 10)]) == nil)
+        #expect(SpeakerAssigner.assign([seg(1, 4)], turns: []) == nil)
+    }
+}

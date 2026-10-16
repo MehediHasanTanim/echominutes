@@ -6,6 +6,7 @@ let grdb: Target.Dependency = .product(name: "GRDB", package: "GRDB.swift")
 let atomics: Target.Dependency = .product(name: "Atomics", package: "swift-atomics")
 let tapShim: Target.Dependency = .target(name: "EMTapShim")
 let whisperKit: Target.Dependency = .product(name: "WhisperKit", package: "WhisperKit")
+let speakerKit: Target.Dependency = .product(name: "SpeakerKit", package: "WhisperKit")
 
 /// (module, internal deps, external deps)
 let modules: [(name: String, deps: [String], external: [Target.Dependency])] = [
@@ -14,7 +15,7 @@ let modules: [(name: String, deps: [String], external: [Target.Dependency])] = [
     ("EMDetection", ["EMCore", "EMAudio"], []),
     ("EMAudio", ["EMCore"], [atomics, tapShim]),
     ("EMSession", ["EMCore", "EMDetection", "EMAudio", "EMStorage"], []),
-    ("EMTranscription", ["EMCore"], [whisperKit]),
+    ("EMTranscription", ["EMCore"], [whisperKit, speakerKit]),
     ("EMSummarization", ["EMCore"], []),
     ("EMJobs", ["EMCore", "EMStorage", "EMTranscription"], []),
     ("EMExport", ["EMCore"], []),

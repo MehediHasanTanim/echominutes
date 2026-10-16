@@ -196,6 +196,7 @@ struct SessionAudioView: View {
     @State private var remixing = false
     @State private var remixError: String?
     @State private var bookmarks: [Bookmark] = []
+    @State private var handledNonce = 0
     @Environment(AppState.self) private var state
 
     var body: some View {
@@ -216,8 +217,7 @@ struct SessionAudioView: View {
                     HStack(spacing: 6) {
                         ForEach(bookmarks) { b in
                             Button {
-                                player.seek(seconds: Double(b.atMs) / 1000)
-                                if !player.isPlaying { player.toggle() }
+                                state.play(session.id, atMs: b.atMs)
                             } label: {
                                 Label(fmt(Double(b.atMs) / 1000), systemImage: "bookmark.fill")
                             }
@@ -236,8 +236,16 @@ struct SessionAudioView: View {
             }
             if let remixError { Text(remixError).font(.caption).foregroundStyle(.red) }
         }
-        .onAppear(perform: load)
+        .onAppear { load(); honour(state.playRequest) }        // request made before this view existed (search hit)
         .onDisappear { player.stop() }
+        .onChange(of: state.playRequest) { _, r in honour(r) }
+    }
+
+    private func honour(_ r: AppState.PlayRequest?) {
+        guard let r, r.sessionID == session.id, r.nonce != handledNonce else { return }
+        handledNonce = r.nonce
+        player.seek(seconds: Double(r.ms) / 1000)
+        if !player.isPlaying { player.toggle() }
     }
 
     private func load() {

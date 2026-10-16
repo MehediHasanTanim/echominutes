@@ -128,7 +128,8 @@ public struct TranscriptRepository: Sendable {
         }
     }
 
-    public func renameSpeaker(_ speakerID: String, to name: String) throws {
+    /// `nil` clears the custom name (back to "Me" / "Speaker 2").
+    public func renameSpeaker(_ speakerID: String, to name: String?) throws {
         try db.writer.write { try $0.execute(sql: "UPDATE speakers SET display_name = ? WHERE id = ?", arguments: [name, speakerID]) }
     }
 

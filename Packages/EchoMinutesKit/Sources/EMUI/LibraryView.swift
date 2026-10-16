@@ -5,6 +5,7 @@ import SwiftUI
 public struct LibraryView: View {
     public static let windowID = "library"
     @Environment(AppState.self) private var state
+    @State private var query = ""
 
     public init() {}
 
@@ -12,7 +13,9 @@ public struct LibraryView: View {
         @Bindable var state = state
         NavigationSplitView {
             Group {
-                if state.sessions.isEmpty {
+                if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    SearchResultsView(query: query)
+                } else if state.sessions.isEmpty {
                     ContentUnavailableView("No meetings yet", systemImage: "waveform",
                                            description: Text("Join a call in Teams, Zoom or WhatsApp — EchoMinutes will record it automatically."))
                 } else {
@@ -32,6 +35,7 @@ public struct LibraryView: View {
                 }
             }
             .navigationSplitViewColumnWidth(min: 260, ideal: 300)
+            .searchable(text: $query, placement: .sidebar, prompt: "Search transcripts")
             #if DEBUG
             .toolbar {
                 ToolbarItem {

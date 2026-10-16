@@ -93,8 +93,11 @@ public actor ManualRecorder {
     private func openCapture(app: DetectionRules.App, includeMic: Bool, mode: ChunkWriter.Mode, now: Date) throws -> Session {
         let procs = AudioProcesses.resolve(app, in: AudioProcesses.current())
         guard !procs.isEmpty else { throw AudioCaptureError.noTargetProcesses(app.name) }
-        let s = Session(title: "\(app.name) call", sourceAppID: app.id, sourceBundleID: procs.first?.bundleID,
+        var s = Session(title: "\(app.name) call", sourceAppID: app.id, sourceBundleID: procs.first?.bundleID,
                         startedAt: now, status: .recording, now: now)
+        let route = OutputRoute.current()          // EM-092: speakers → the mic will hear the call (echo)
+        s.echoRisk = route.isBuiltInSpeakers
+        Log.info(.session, "Output: \(route.summary)")
         let dir = try paths.createSessionDirectories(s.id)
         let cap = AggregateCapture(processObjectIDs: procs.map(\.objectID), includeMic: includeMic)
         do {

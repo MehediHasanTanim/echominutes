@@ -1,3 +1,4 @@
+import CoreAudio
 import EMCore
 import Foundation
 import Testing
@@ -129,5 +130,18 @@ struct RecordingServiceTests {
         let ghost = DetectionRules.App(id: "ghost", name: "Ghost", bundlePrefixes: ["com.example.not-installed"])
         await #expect(throws: AudioCaptureError.self) { try await svc.start(app: ghost) }
         #expect(await svc.isRunning == false)
+    }
+}
+
+
+@Suite("OutputRoute")
+struct OutputRouteTests {
+    @Test func classifiesEchoRisk() {
+        let builtIn = kAudioDeviceTransportTypeBuiltIn
+        #expect(OutputRoute(deviceName: "MacBook Pro Speakers", transportType: builtIn, dataSource: OutputRoute.fourCCSpeakers).isBuiltInSpeakers)
+        #expect(!OutputRoute(deviceName: "External Headphones", transportType: builtIn, dataSource: OutputRoute.fourCCHeadphones).isBuiltInSpeakers)
+        #expect(!OutputRoute(deviceName: "AirPods Pro", transportType: kAudioDeviceTransportTypeBluetooth, dataSource: nil).isBuiltInSpeakers)
+        #expect(!OutputRoute(deviceName: "USB Headset", transportType: kAudioDeviceTransportTypeUSB, dataSource: nil).isBuiltInSpeakers)
+        #expect(OutputRoute(deviceName: "LG UltraFine", transportType: kAudioDeviceTransportTypeDisplayPort, dataSource: nil).isBuiltInSpeakers)
     }
 }

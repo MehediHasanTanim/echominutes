@@ -7,6 +7,7 @@ import SwiftUI
 struct TranscriptionSettingsView: View {
     @Environment(AppState.self) private var state
     @AppStorage(TranscriptionPreferences.autoKey) private var auto = true
+    @AppStorage(TranscriptionPreferences.speakersKey) private var speakers = true
     @AppStorage(TranscriptionPreferences.modelKey) private var model = STTModelCatalog.defaultVariant
     @AppStorage(TranscriptionPreferences.languageKey) private var language = "en"
     @AppStorage(TranscriptionPreferences.vocabularyKey) private var vocabulary = ""
@@ -18,6 +19,7 @@ struct TranscriptionSettingsView: View {
         Form {
             Section {
                 Toggle("Transcribe recordings automatically when they are saved", isOn: $auto)
+                Toggle("Tell speakers on the call apart (Speaker 1, Speaker 2…)", isOn: $speakers)
                 Text("Runs on this Mac with Whisper — audio never leaves your computer. On battery below 20 % or in Low Power Mode it waits until you're plugged in (or use “Transcribe now”).")
                     .font(.caption).foregroundStyle(.secondary)
             }

@@ -10,9 +10,15 @@ public struct TranscriptionSettings: Sendable, Equatable {
     /// Names, jargon, acronyms — fed to the decoder as a prompt so they are spelled correctly.
     public var vocabulary: [String]
     public var autoTranscribe: Bool
+    /// Split the call track into Speaker 1…N (EM-091).
+    public var identifySpeakers: Bool
+    /// Shown instead of "Me" (Settings ▸ General).
+    public var myName: String
 
-    public init(model: String = STTModelCatalog.defaultVariant, language: String = "en", vocabulary: [String] = [], autoTranscribe: Bool = true) {
+    public init(model: String = STTModelCatalog.defaultVariant, language: String = "en", vocabulary: [String] = [],
+                autoTranscribe: Bool = true, identifySpeakers: Bool = true, myName: String = "") {
         self.model = model; self.language = language; self.vocabulary = vocabulary; self.autoTranscribe = autoTranscribe
+        self.identifySpeakers = identifySpeakers; self.myName = myName
     }
 }
 

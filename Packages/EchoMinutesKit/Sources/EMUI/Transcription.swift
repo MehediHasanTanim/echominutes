@@ -11,6 +11,8 @@ public enum TranscriptionPreferences {
     public static let languageKey = "stt.language"
     public static let vocabularyKey = "stt.vocabulary"
     public static let autoKey = "stt.auto"
+    public static let speakersKey = "stt.identifySpeakers"
+    public static let myNameKey = "myName"
 
     public static var current: TranscriptionSettings {
         let d = UserDefaults.standard
@@ -20,7 +22,9 @@ public enum TranscriptionPreferences {
         return TranscriptionSettings(model: d.string(forKey: modelKey) ?? STTModelCatalog.defaultVariant,
                                      language: d.string(forKey: languageKey) ?? "en",
                                      vocabulary: vocab,
-                                     autoTranscribe: d.object(forKey: autoKey) as? Bool ?? true)
+                                     autoTranscribe: d.object(forKey: autoKey) as? Bool ?? true,
+                                     identifySpeakers: d.object(forKey: speakersKey) as? Bool ?? true,
+                                     myName: d.string(forKey: myNameKey) ?? "")
     }
 
     public static let languages: [(code: String, name: String)] = [
@@ -54,7 +58,8 @@ extension AppState {
         let cache = EngineCache(models: STTModelManager(modelsDir: paths.modelsDir))
         let transcribe = TranscribeJobHandler(db: database, paths: paths,
                                               settings: { TranscriptionPreferences.current },
-                                              engine: { cache.engine($0) })
+                                              engine: { cache.engine($0) },
+                                              diarizer: CallSpeakerDiarizer(modelsDir: paths.modelsDir))
         let runner = JobRunner(db: database, handlers: [.transcribe: transcribe])
         jobRunner = runner
         let events = runner.events
@@ -95,6 +100,28 @@ extension AppState {
         guard let database else { return ([], []) }
         let r = TranscriptRepository(database)
         return ((try? r.segments(id)) ?? [], (try? r.speakers(id)) ?? [])
+    }
+
+    /// Rename a speaker in one meeting (EM-095). Empty name restores the default label.
+    public func renameSpeaker(_ speaker: Speaker, to name: String) {
+        guard let database else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        do {
+            try TranscriptRepository(database).renameSpeaker(speaker.id, to: trimmed.isEmpty ? nil : trimmed)
+            transcriptVersion += 1
+        } catch { lastError = "Rename failed: \(error.localizedDescription)" }
+    }
+
+    /// Jump the meeting's player to a moment (transcript line, bookmark, search hit) and play.
+    public func play(_ id: SessionID, atMs ms: Int) {
+        selectedSessionID = id
+        playRequest = PlayRequest(sessionID: id, ms: ms, nonce: (playRequest?.nonce ?? 0) + 1)
+    }
+
+    /// Full-text search over transcripts (FTS5, prefix match on the last word).
+    public func search(_ text: String) -> [SearchHit] {
+        guard let database else { return [] }
+        return (try? SearchRepository(database).search(text, limit: 100)) ?? []
     }
 
     func handleJobEvent(_ e: JobEvent) {

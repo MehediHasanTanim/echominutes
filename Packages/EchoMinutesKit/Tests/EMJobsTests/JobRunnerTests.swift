@@ -187,7 +187,7 @@ struct TranscribeJobHandlerTests {
         let s = Session(title: "Zoom call", sourceAppID: "zoom", startedAt: Date(), status: .ready)
         try SessionRepository(db).insert(s)
         let dir = try paths.createSessionDirectories(s.id)
-        try writeTrack(dir.appendingPathComponent("mic.m4a"), bursts: [2...5], seconds: 20)
+        try writeTrack(dir.appendingPathComponent("mic.m4a"), bursts: [2...4], seconds: 20)   // ≥ 3 s from the call line, so the echo filter leaves it
         try writeTrack(dir.appendingPathComponent("system.m4a"), bursts: [8...12], seconds: 20)
 
         let h = TranscribeJobHandler(db: db, paths: paths, settings: { TranscriptionSettings(language: "bn") }, engine: { _ in EchoEngine() })
@@ -211,6 +211,55 @@ struct TranscribeJobHandlerTests {
         #expect(log.fractions.last == 1)
     }
 
+    func makeSession(_ systemBursts: [ClosedRange<Double>]) throws -> (AppDatabase, AppPaths, Session, URL) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("em-tj-\(UUID().uuidString)")
+        let paths = try AppPaths(root: root)
+        let db = try AppDatabase.inMemory()
+        let s = Session(title: "Zoom call", sourceAppID: "zoom", startedAt: Date(), status: .ready)
+        try SessionRepository(db).insert(s)
+        let dir = try paths.createSessionDirectories(s.id)
+        try writeTrack(dir.appendingPathComponent("mic.m4a"), bursts: [2...4], seconds: 40)
+        try writeTrack(dir.appendingPathComponent("system.m4a"), bursts: systemBursts, seconds: 40)
+        return (db, paths, s, root)
+    }
+
+    @Test func splitsTheCallIntoSpeakersAndKeepsNamesOnRerun() async throws {
+        let (db, paths, s, root) = try makeSession([8...12, 20...24, 30...34])
+        defer { try? FileManager.default.removeItem(at: root) }
+        // Speaker A talks at 8–12 and 30–34, speaker B at 20–24.
+        let turns = [SpeakerTurn(speaker: 5, start: 7.5, end: 12.5), SpeakerTurn(speaker: 2, start: 19.5, end: 24.5),
+                     SpeakerTurn(speaker: 5, start: 29.5, end: 34.5)]
+        let h = TranscribeJobHandler(db: db, paths: paths, settings: { TranscriptionSettings(myName: "Tanim") },
+                                     engine: { _ in EchoEngine() }, diarizer: FixedDiarizer(turns: turns))
+        let job = Job(id: "j3", sessionID: s.id, kind: .transcribe, status: .running, attempts: 1, lastError: nil, notBefore: nil)
+        try await h.run(job) { _, _ in }
+
+        let repo = TranscriptRepository(db)
+        var speakers = try repo.speakers(s.id)
+        #expect(speakers.map(\.name).sorted() == ["Speaker 1", "Speaker 2", "Tanim"])
+        let names = { (segs: [TranscriptSegment], sp: [Speaker]) in
+            segs.map { seg in sp.first { $0.id == seg.speakerID }?.name ?? "?" }
+        }
+        #expect(names(try repo.segments(s.id), speakers) == ["Tanim", "Speaker 1", "Speaker 2", "Speaker 1"])
+
+        // User renames Speaker 2 → kept when the meeting is transcribed again.
+        let s2 = try #require(speakers.first { $0.label == "Speaker 2" })
+        try repo.renameSpeaker(s2.id, to: "Rahim")
+        try await h.run(job) { _, _ in }
+        speakers = try repo.speakers(s.id)
+        #expect(names(try repo.segments(s.id), speakers) == ["Tanim", "Speaker 1", "Rahim", "Speaker 1"])
+    }
+
+    @Test func diarizerFailureFallsBackToOthers() async throws {
+        let (db, paths, s, root) = try makeSession([8...12])
+        defer { try? FileManager.default.removeItem(at: root) }
+        let h = TranscribeJobHandler(db: db, paths: paths, settings: { TranscriptionSettings() },
+                                     engine: { _ in EchoEngine() }, diarizer: FailingDiarizer())
+        let job = Job(id: "j4", sessionID: s.id, kind: .transcribe, status: .running, attempts: 1, lastError: nil, notBefore: nil)
+        try await h.run(job) { _, _ in }
+        #expect(try TranscriptRepository(db).speakers(s.id).map(\.name) == ["Me", "Others"])
+    }
+
     @Test func missingAudioIsAPermanentFailure() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("em-tj-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
@@ -232,4 +281,15 @@ final class MessageLog: @unchecked Sendable {
     func add(_ x: Double, _ s: String) { lock.withLock { f.append(x); m.append(s) } }
     var fractions: [Double] { lock.withLock { f } }
     var messages: [String] { lock.withLock { m } }
+}
+
+struct FixedDiarizer: SpeakerDiarizer {
+    let turns: [SpeakerTurn]
+    func diarize(samples: [Float], progress: @escaping @Sendable (Double) -> Void) async throws -> [SpeakerTurn] { progress(1); return turns }
+}
+
+struct FailingDiarizer: SpeakerDiarizer {
+    func diarize(samples: [Float], progress: @escaping @Sendable (Double) -> Void) async throws -> [SpeakerTurn] {
+        throw EMError.invalidData("model download failed")
+    }
 }

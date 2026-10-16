@@ -12,9 +12,11 @@ public struct TranscribeJobHandler: JobHandler {
     let paths: AppPaths
     let settings: @Sendable () -> TranscriptionSettings
     let engine: EngineProvider
+    let diarizer: SpeakerDiarizer?
 
-    public init(db: AppDatabase, paths: AppPaths, settings: @escaping @Sendable () -> TranscriptionSettings, engine: @escaping EngineProvider) {
-        self.db = db; self.paths = paths; self.settings = settings; self.engine = engine
+    public init(db: AppDatabase, paths: AppPaths, settings: @escaping @Sendable () -> TranscriptionSettings,
+                engine: @escaping EngineProvider, diarizer: SpeakerDiarizer? = nil) {
+        self.db = db; self.paths = paths; self.settings = settings; self.engine = engine; self.diarizer = diarizer
     }
 
     public func run(_ job: Job, progress: @escaping @Sendable (Double, String) -> Void) async throws {
@@ -46,20 +48,33 @@ public struct TranscribeJobHandler: JobHandler {
             }
             guard !tracks.isEmpty else { throw JobFailure.permanent("No audio tracks found for this recording") }
 
-            let me = Speaker(sessionID: sid, label: "Me", isMe: true)
-            let others = Speaker(sessionID: sid, label: "Others")
+            // Keep names the user gave speakers on a previous run (re-transcribe).
+            let previousNames = Dictionary(((try? TranscriptRepository(db).speakers(sid)) ?? []).compactMap { sp in
+                sp.displayName.map { (sp.label, $0) } }, uniquingKeysWith: { a, _ in a })
+            func speaker(_ label: String, isMe: Bool = false) -> Speaker {
+                let fallback = isMe && !cfg.myName.trimmingCharacters(in: .whitespaces).isEmpty ? cfg.myName : nil
+                return Speaker(sessionID: sid, label: label, displayName: previousNames[label] ?? fallback, isMe: isMe)
+            }
+            let me = speaker("Me", isMe: true)
+            let others = speaker("Others")
             let options = STTOptions(language: cfg.language, vocabulary: cfg.vocabulary)
             let transcriber = TrackTranscriber(engine: engine)
+            let diarize = cfg.identifySpeakers && diarizer != nil && tracks.contains { $0.0 == .system }
+            let sttShare = diarize ? 0.85 : 1.0
             var segments: [TranscriptSegment] = []
+            var systemSamples: [Float] = []
             let t0 = Date()
             var audioSeconds = 0.0, speechSeconds = 0.0
 
             for (i, (kind, url)) in tracks.enumerated() {
                 try Task.checkCancellation()
                 let label = kind == .mic ? "your voice" : "the call"
-                let span = 1.0 / Double(tracks.count)
-                let out = try await transcriber.transcribe(url, options: options) { p in
-                    progress((Double(i) + p) * span, String(format: "Transcribing %@… %.0f%%", label, ((Double(i) + p) * span) * 100))
+                let span = sttShare / Double(tracks.count)
+                let samples = try AudioLoader.load16kMono(url)
+                if kind == .system { systemSamples = samples }
+                let out = try await transcriber.transcribe(samples: samples, options: options) { p in
+                    let f = (Double(i) + p) * span
+                    progress(f, String(format: "Transcribing %@… %.0f%%", label, f * 100))
                 }
                 audioSeconds = max(audioSeconds, out.audioSeconds)
                 speechSeconds += out.speechSeconds
@@ -76,7 +91,36 @@ public struct TranscribeJobHandler: JobHandler {
                 Log.info(.stt, "Echo: removed \(deduped.removed.count) mic segment(s) that repeated the call audio")
             }
             segments = deduped.segments
-            try TranscriptRepository(db).replace(sid, speakers: [me, others], segments: segments)
+
+            // 3. Who is who on the call (Speaker 1…N); falls back to a single "Others".
+            var speakers = [me]
+            var needOthers = segments.contains { $0.track == .system }
+            if diarize, let diarizer, needOthers {
+                try Task.checkCancellation()
+                progress(sttShare, "Identifying speakers…")
+                do {
+                    let turns = try await diarizer.diarize(samples: systemSamples) { p in
+                        progress(sttShare + p * (1 - sttShare), String(format: "Identifying speakers… %.0f%%", p * 100))
+                    }
+                    let sysIdx = segments.indices.filter { segments[$0].track == .system }
+                    if let a = SpeakerAssigner.assign(sysIdx.map { segments[$0] }, turns: turns) {
+                        let numbered = (1...a.speakerCount).map { speaker("Speaker \($0)") }
+                        speakers += numbered
+                        needOthers = false
+                        for (k, idx) in sysIdx.enumerated() {
+                            if let n = a.speakerOfSegment[k] { segments[idx].speakerID = numbered[n - 1].id }
+                            else { needOthers = true }
+                        }
+                        Log.info(.stt, "Speakers on the call: \(a.speakerCount)")
+                    }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    Log.error(.stt, "Speaker identification failed, keeping \"Others\": \(error)")
+                }
+            }
+            if needOthers { speakers.append(others) }
+            try TranscriptRepository(db).replace(sid, speakers: speakers, segments: segments)
 
             var s = try sessions.fetch(sid) ?? session
             if !deduped.removed.isEmpty { s.echoRisk = true }

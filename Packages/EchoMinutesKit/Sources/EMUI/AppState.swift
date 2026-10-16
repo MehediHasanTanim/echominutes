@@ -75,6 +75,8 @@ public final class AppState {
     public internal(set) var jobNotes: [SessionID: String] = [:]          // last failure / deferral per session
     public internal(set) var transcriptVersion = 0                         // bumped when a transcript is saved
     @ObservationIgnored var jobRunner: JobRunner?
+    public struct PlayRequest: Equatable, Sendable { public var sessionID: SessionID; public var ms: Int; public var nonce: Int }
+    public internal(set) var playRequest: PlayRequest?
 
     public init(paths: AppPaths?, database: AppDatabase?, startupError: String? = nil, rules: DetectionRules? = DetectionRules.bundled()) {
         self.paths = paths

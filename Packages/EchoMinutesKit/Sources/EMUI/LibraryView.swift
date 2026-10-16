@@ -94,7 +94,14 @@ struct SessionDetailPlaceholder: View {
             case .ready, .transcribing, .summarizing:
                 if let dir = state.paths?.sessionDir(session.id) { SessionAudioView(session: session, directory: dir).id(session.id) }
                 Divider()
-                TranscriptSection(session: session)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        SummarySection(session: session)
+                        Divider()
+                        TranscriptSection(session: session)
+                    }
+                    .padding(.trailing, 8)
+                }
             case .interrupted:
                 Label("This recording was interrupted (app quit or crashed).", systemImage: "exclamationmark.triangle")
                 Button("Recover recording") { Task { await state.recoverSession(session.id) } }

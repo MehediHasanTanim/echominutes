@@ -13,6 +13,7 @@ struct DetectionSettingsView: View {
         var mode: RecordingMode
         var debounce: Double
         var grace: Double
+        var localOnly: Bool
     }
 
     @Environment(AppState.self) private var state
@@ -48,6 +49,8 @@ struct DetectionSettingsView: View {
                             HStack(spacing: 20) {
                                 Stepper("Start after \(Int(row.debounce)) s", value: $row.debounce, in: 2...60, step: 1)
                                 Stepper("Stop after \(Int(row.grace)) s", value: $row.grace, in: 5...300, step: 5)
+                                Toggle("Local only", isOn: $row.localOnly)
+                                    .help("Summaries of this app's meetings use Ollama on this Mac only — nothing is sent to a cloud provider")
                                 if row.debounce != row.defaultDebounce || row.grace != row.defaultGrace {
                                     Button("Reset") { row.debounce = row.defaultDebounce; row.grace = row.defaultGrace }
                                         .buttonStyle(.link)
@@ -78,9 +81,10 @@ struct DetectionSettingsView: View {
 
     private func load() {
         guard let rs = state.currentRuleSet() else { return }
+        let saved = state.database.flatMap { try? SettingsRepository($0).rules() } ?? [:]
         rows = rs.rules.map {
             Row(id: $0.id, name: $0.app.name, defaultDebounce: $0.app.debounceSec, defaultGrace: $0.app.graceSec,
-                mode: $0.mode, debounce: $0.debounce, grace: $0.grace)
+                mode: $0.mode, debounce: $0.debounce, grace: $0.grace, localOnly: saved[$0.id]?.localOnly ?? false)
         }
     }
 
@@ -91,7 +95,7 @@ struct DetectionSettingsView: View {
             for r in rows {
                 try repo.saveRule(AppRuleOverride(appID: r.id, mode: r.mode,
                                                   debounceSec: r.debounce == r.defaultDebounce ? nil : r.debounce,
-                                                  graceSec: r.grace == r.defaultGrace ? nil : r.grace))
+                                                  graceSec: r.grace == r.defaultGrace ? nil : r.grace, localOnly: r.localOnly))
             }
             saveError = nil
             state.applyDetectionSettings()

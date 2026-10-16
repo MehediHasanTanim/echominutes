@@ -11,20 +11,47 @@ public enum LLMPreferences {
     }
 }
 
+/// Thread-safe reads of provider settings (DB + Keychain) — used by AppState and by background jobs.
+public struct ProviderStore: Sendable {
+    let db: AppDatabase
+    public init(db: AppDatabase) { self.db = db }
+
+    public func config(_ p: ProviderID) -> ProviderConfig {
+        (try? SettingsRepository(db).providers().first { $0.provider == p }) ?? ProviderConfig(provider: p, enabled: false)
+    }
+
+    public static func azureFields(_ c: ProviderConfig) -> (deployment: String, apiVersion: String) {
+        let v = c.extraJSON.flatMap { try? JSONValue.parse($0) }
+        return (v?["deployment"]?.string ?? "", v?["apiVersion"]?.string ?? "")
+    }
+
+    public func settings(_ p: ProviderID) -> ProviderSettings {
+        let c = config(p)
+        let az = Self.azureFields(c)
+        return ProviderSettings(provider: p, apiKey: (try? KeychainStore().get(p)) ?? nil, model: c.model, baseURL: c.baseURL,
+                                azureDeployment: az.deployment, azureAPIVersion: az.apiVersion)
+    }
+
+    /// nil when usable; otherwise what's missing.
+    public func readiness(_ p: ProviderID) -> String? {
+        let s = settings(p)
+        if p.requiresAPIKey, (s.apiKey ?? "").isEmpty { return "API key missing" }
+        if p == .azureOpenAI, (s.baseURL ?? "").isEmpty || (s.azureDeployment ?? "").isEmpty { return "Endpoint or deployment missing" }
+        if p == .openAICompatible, (s.baseURL ?? "").isEmpty { return "Base URL missing" }
+        if p != .azureOpenAI, (s.model ?? "").isEmpty { return "No model selected" }
+        return nil
+    }
+}
+
 extension AppState {
     var keychain: KeychainStore { KeychainStore() }
 
     public func providerConfig(_ p: ProviderID) -> ProviderConfig {
-        guard let database, let c = try? SettingsRepository(database).providers().first(where: { $0.provider == p })
-        else { return ProviderConfig(provider: p, enabled: false) }
-        return c
+        database.map { ProviderStore(db: $0).config(p) } ?? ProviderConfig(provider: p, enabled: false)
     }
 
     /// Azure fields live in `extra_json`.
-    public func azureFields(_ c: ProviderConfig) -> (deployment: String, apiVersion: String) {
-        let v = c.extraJSON.flatMap { try? JSONValue.parse($0) }
-        return (v?["deployment"]?.string ?? "", v?["apiVersion"]?.string ?? "")
-    }
+    public func azureFields(_ c: ProviderConfig) -> (deployment: String, apiVersion: String) { ProviderStore.azureFields(c) }
 
     public func saveProviderConfig(_ p: ProviderID, model: String?, baseURL: String?, azureDeployment: String? = nil, azureAPIVersion: String? = nil) {
         guard let database else { return }
@@ -58,20 +85,12 @@ extension AppState {
     }
 
     public func providerSettings(_ p: ProviderID) -> ProviderSettings {
-        let c = providerConfig(p)
-        let az = azureFields(c)
-        return ProviderSettings(provider: p, apiKey: (try? keychain.get(p)) ?? nil, model: c.model, baseURL: c.baseURL,
-                                azureDeployment: az.deployment, azureAPIVersion: az.apiVersion)
+        database.map { ProviderStore(db: $0).settings(p) } ?? ProviderSettings(provider: p)
     }
 
     /// Is the provider usable (key / endpoint / model present)?
     public func providerReadiness(_ p: ProviderID) -> String? {
-        let s = providerSettings(p)
-        if p.requiresAPIKey, (s.apiKey ?? "").isEmpty { return "API key missing" }
-        if p == .azureOpenAI, (s.baseURL ?? "").isEmpty || (s.azureDeployment ?? "").isEmpty { return "Endpoint or deployment missing" }
-        if p == .openAICompatible, (s.baseURL ?? "").isEmpty { return "Base URL missing" }
-        if p != .azureOpenAI, (s.model ?? "").isEmpty { return "No model selected" }
-        return nil
+        database.map { ProviderStore(db: $0).readiness(p) } ?? "Library unavailable"
     }
 
     /// EM-107 banner text; nil when summaries can run.

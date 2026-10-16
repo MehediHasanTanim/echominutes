@@ -17,7 +17,7 @@ let modules: [(name: String, deps: [String], external: [Target.Dependency])] = [
     ("EMSession", ["EMCore", "EMDetection", "EMAudio", "EMStorage"], []),
     ("EMTranscription", ["EMCore"], [whisperKit, speakerKit]),
     ("EMSummarization", ["EMCore"], []),
-    ("EMJobs", ["EMCore", "EMStorage", "EMTranscription"], []),
+    ("EMJobs", ["EMCore", "EMStorage", "EMTranscription", "EMSummarization"], []),
     ("EMExport", ["EMCore"], []),
     ("EMUI", ["EMCore", "EMStorage", "EMAudio", "EMDetection", "EMSession", "EMJobs", "EMTranscription", "EMSummarization"], []),
 ]

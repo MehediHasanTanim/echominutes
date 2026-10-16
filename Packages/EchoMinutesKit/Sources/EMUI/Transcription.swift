@@ -60,7 +60,10 @@ extension AppState {
                                               settings: { TranscriptionPreferences.current },
                                               engine: { cache.engine($0) },
                                               diarizer: CallSpeakerDiarizer(modelsDir: paths.modelsDir))
-        let runner = JobRunner(db: database, handlers: [.transcribe: transcribe])
+        let summarize = SummarizeJobHandler(db: database, config: { session in
+            SummaryPreferences.config(for: session, db: database, paths: paths)
+        })
+        let runner = JobRunner(db: database, handlers: [.transcribe: transcribe, .summarize: summarize])
         jobRunner = runner
         let events = runner.events
         Task { [weak self] in
@@ -125,23 +128,38 @@ extension AppState {
     }
 
     func handleJobEvent(_ e: JobEvent) {
+        let isSummary: (Job) -> Bool = { $0.kind == .summarize }
         switch e {
         case .started(let j):
-            if let s = j.sessionID { jobProgress[s] = JobProgress(fraction: 0, message: "Starting…"); jobNotes[s] = nil }
+            if let s = j.sessionID {
+                if isSummary(j) { summaryProgress[s] = JobProgress(fraction: 0, message: "Writing summary…"); summaryNotes[s] = nil }
+                else { jobProgress[s] = JobProgress(fraction: 0, message: "Starting…"); jobNotes[s] = nil }
+            }
             reloadSessions()
-        case .progress(_, let s?, _, let f, let m):
-            jobProgress[s] = JobProgress(fraction: f, message: m)
+        case .progress(_, let s?, let kind, let f, let m):
+            if kind == .summarize { summaryProgress[s] = JobProgress(fraction: f, message: m) }
+            else { jobProgress[s] = JobProgress(fraction: f, message: m) }
         case .progress:
             break
         case .finished(let j):
-            if let s = j.sessionID { jobProgress[s] = nil; jobNotes[s] = nil }
-            transcriptVersion += 1
-            reloadSessions()
-            if let s = j.sessionID, let session = session(s) { notifier.transcriptReady(sessionID: s, title: session.title) }
+            guard let s = j.sessionID else { break }
+            if isSummary(j) {
+                summaryProgress[s] = nil; summaryNotes[s] = nil
+                summaryVersion += 1
+                reloadSessions()
+                if let session = session(s) { notifier.summaryReady(sessionID: s, title: session.title) }
+            } else {
+                jobProgress[s] = nil; jobNotes[s] = nil
+                transcriptVersion += 1
+                reloadSessions()
+                if let session = session(s) { notifier.transcriptReady(sessionID: s, title: session.title) }
+                transcriptFinished(s)                       // EM-081: transcribe → summarize
+            }
         case .failed(let j, let error, let willRetry):
             if let s = j.sessionID {
-                jobProgress[s] = nil
-                jobNotes[s] = willRetry ? "Transcription failed, retrying soon: \(error)" : "Transcription failed: \(error)"
+                let what = isSummary(j) ? "Summary" : "Transcription"
+                let note = willRetry ? "\(what) failed, retrying soon: \(error)" : "\(what) failed: \(error)"
+                if isSummary(j) { summaryProgress[s] = nil; summaryNotes[s] = note } else { jobProgress[s] = nil; jobNotes[s] = note }
             }
             reloadSessions()
         case .deferred(let j, let reason):
@@ -152,4 +170,5 @@ extension AppState {
             reloadSessions()
         }
     }
+
 }

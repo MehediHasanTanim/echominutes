@@ -11,7 +11,7 @@ public struct SettingsView: View {
             DetectionSettingsView().tabItem { Label("Detection", systemImage: "dot.radiowaves.left.and.right") }
             PlaceholderSettings(title: "Recording", detail: "Input device, quality, echo handling — Sprint 4").tabItem { Label("Recording", systemImage: "record.circle") }
             TranscriptionSettingsView().tabItem { Label("Transcription", systemImage: "text.bubble") }
-            PlaceholderSettings(title: "AI Summary", detail: "Provider, model, templates — Sprint 10").tabItem { Label("AI Summary", systemImage: "sparkles") }
+            SummarySettingsView().tabItem { Label("AI Summary", systemImage: "sparkles") }
             ProvidersSettingsView().tabItem { Label("Providers", systemImage: "key") }
             PlaceholderSettings(title: "Privacy & Storage", detail: "Retention, local-only apps, storage usage — EM-133").tabItem { Label("Privacy", systemImage: "lock.shield") }
             PlaceholderSettings(title: "Diagnostics", detail: "Permissions, audio test, log export — EM-132").tabItem { Label("Diagnostics", systemImage: "stethoscope") }

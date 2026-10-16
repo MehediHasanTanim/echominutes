@@ -186,6 +186,20 @@ public struct SummaryRepository: Sendable {
         try db.writer.write { try $0.execute(sql: "UPDATE action_items SET is_done = ? WHERE id = ?", arguments: [done, actionItemID]) }
     }
 
+    /// Total estimated API cost of summaries created since `date` (Settings ▸ AI Summary, EM-116).
+    public func totalCost(since date: Date) throws -> Double {
+        try db.writer.read {
+            try Double.fetchOne($0, sql: "SELECT COALESCE(SUM(cost_usd), 0) FROM summaries WHERE created_at >= ?", arguments: [date]) ?? 0
+        }
+    }
+
+    /// Makes an older version the current one (history picker).
+    public func makeCurrent(_ summaryID: String, sessionID: SessionID) throws {
+        try db.writer.write { db in
+            try db.execute(sql: "UPDATE summaries SET is_current = (id = ?) WHERE session_id = ?", arguments: [summaryID, sessionID.description])
+        }
+    }
+
     /// Open action items across all meetings (newest meetings first).
     public func openActionItems(limit: Int = 200) throws -> [ActionItem] {
         try db.writer.read {

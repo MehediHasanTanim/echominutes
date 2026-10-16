@@ -74,6 +74,9 @@ public final class AppState {
     public internal(set) var jobProgress: [SessionID: JobProgress] = [:]
     public internal(set) var jobNotes: [SessionID: String] = [:]          // last failure / deferral per session
     public internal(set) var transcriptVersion = 0                         // bumped when a transcript is saved
+    public internal(set) var summaryProgress: [SessionID: JobProgress] = [:]
+    public internal(set) var summaryNotes: [SessionID: String] = [:]
+    public internal(set) var summaryVersion = 0
     @ObservationIgnored var jobRunner: JobRunner?
     public struct PlayRequest: Equatable, Sendable { public var sessionID: SessionID; public var ms: Int; public var nonce: Int }
     public internal(set) var playRequest: PlayRequest?

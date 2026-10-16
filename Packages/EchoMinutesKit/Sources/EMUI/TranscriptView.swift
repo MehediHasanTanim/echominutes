@@ -92,8 +92,7 @@ struct TranscriptSection: View {
     }
 
     private var lines: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4) {
+        LazyVStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
                     let sp = seg.speakerID.flatMap { byID[$0] }
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -110,10 +109,8 @@ struct TranscriptSection: View {
                     .onTapGesture { state.play(session.id, atMs: seg.startMs) }
                     .help("Click to play from \(seg.timestamp)")
                 }
-            }
-            .padding(.vertical, 4)
         }
-        .frame(minHeight: 160)
+        .padding(.vertical, 4)
     }
 
     private func load() {

@@ -9,7 +9,7 @@ Targets: text visible ≤ 5 s after speech; recording + live < 15 % CPU, < 400 M
 2. Make a 5-minute test call (Teams/Zoom/WhatsApp), talk normally on both sides.
 3. In a terminal during the call: `scripts/perf-check.sh 60 live`
 4. After the call, pass timings from the log:
-   `log show --last 15m --predicate 'subsystem == "com.echominutes" AND category == "stt"' | grep "Live pass"`
+   `log show --last 15m --predicate 'subsystem == "com.tanimkabir.echominutes" AND category == "stt"' | grep "Live pass"`
    (logged on the 1st pass and every 50th, with the running average).
 5. Watch the mini widget: roughly how long until grey text appears, and until it turns black (committed)?
 

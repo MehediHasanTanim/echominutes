@@ -1,5 +1,6 @@
 import AppKit
 import EMCore
+import EMDetection
 import EMSummarization
 import SwiftUI
 import UniformTypeIdentifiers
@@ -55,7 +56,7 @@ struct TemplatesSection: View {
     private func ruleText(_ t: UserTemplate) -> String {
         guard let r = t.rule, !r.isEmpty else { return "Used when chosen by hand" }
         var parts: [String] = []
-        if !r.appIDs.isEmpty { parts.append(r.appIDs.map(SessionGrouping.appDisplayName).joined(separator: ", ")) }
+        if !r.appIDs.isEmpty { parts.append(r.appIDs.map { SessionGrouping.appDisplayName($0) }.joined(separator: ", ")) }
         if let p = r.titlePattern, !p.isEmpty { parts.append("title ~ \(p)") }
         if !r.weekdays.isEmpty { parts.append(r.weekdays.sorted().map { Calendar.current.shortWeekdaySymbols[$0 - 1] }.joined(separator: " ")) }
         if let s = r.startMinute, let e = r.endMinute { parts.append(String(format: "%02d:%02d–%02d:%02d", s / 60, s % 60, e / 60, e % 60)) }
@@ -222,7 +223,7 @@ struct TemplateEditor: View {
 
     private var appPicker: some View {
         let apps = state.currentRuleSet()?.rules.map(\.app) ?? []
-        return Menu(rule.appIDs.isEmpty ? "Any app" : rule.appIDs.map(SessionGrouping.appDisplayName).joined(separator: ", ")) {
+        return Menu(rule.appIDs.isEmpty ? "Any app" : rule.appIDs.map { SessionGrouping.appDisplayName($0) }.joined(separator: ", ")) {
             Button("Any app") { rule.appIDs = [] }
             Divider()
             ForEach(apps, id: \.id) { a in

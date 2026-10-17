@@ -61,10 +61,11 @@ public final class LiveTranscript {
         let transcriber = LiveTranscriber(engine: engine, options: options, tracks: tap.tracks) { log.append($0) }
         Log.info(.stt, "Live transcript: starting with \(LivePreferences.model) for \(sessionID)")
 
-        task = Task.detached(priority: .utility) { [weak self] in
-            await Self.run(tap: tap, engine: engine, transcriber: transcriber) { update in
-                await self?.apply(update, for: sessionID)
-            }
+        let publish: @Sendable (Update) async -> Void = { [weak self] update in
+            await self?.apply(update, for: sessionID)
+        }
+        task = Task.detached(priority: .utility) {
+            await Self.run(tap: tap, engine: engine, transcriber: transcriber, publish: publish)
         }
     }
 

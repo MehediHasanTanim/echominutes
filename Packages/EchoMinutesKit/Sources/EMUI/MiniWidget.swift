@@ -62,6 +62,7 @@ final class MiniWidgetController {
         p.setFrameAutosaveName(Self.autosaveName)
         p.orderFrontRegardless()
         panel = p
+        setExpanded(state.live.status != .off && MiniWidgetPreferences.liveExpanded)   // the saved frame may have the other height
         Log.info(.ui, "Mini widget shown at \(NSStringFromRect(p.frame))")
     }
 
@@ -203,8 +204,8 @@ struct LiveTranscriptPanel: View {
 
     private func row(_ track: TrackKind, _ text: String, tentative: Bool) -> some View {
         let me = track == .mic
-        let who = Text(me ? "You  " : "Call  ").bold().foregroundColor(me ? .blue : .purple)
-        let what = Text(text).foregroundColor(tentative ? .secondary : .primary).italic(tentative)
+        let who = Text(me ? "You  " : "Call  ").bold().foregroundStyle(me ? Color.blue : Color.purple)
+        let what = Text(text).foregroundStyle(tentative ? Color.secondary : Color.primary).italic(tentative)
         return Text("\(who)\(what)")
             .frame(maxWidth: .infinity, alignment: .leading)
             .textSelection(.enabled)

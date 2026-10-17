@@ -31,7 +31,11 @@ public struct LibraryView: View {
                                     SessionRowView(session: s)
                                         .tag(s.id)
                                         .contextMenu {
-                                            if state.hasAudio(s.id) { Button("Delete audio only") { state.deleteAudio(s.id) } }
+                                            if state.hasAudio(s.id) {
+                                                Button("Download audio…") { state.exportAudio(s.id, track: .mixed) }
+                                                Divider()
+                                                Button("Delete audio only") { state.deleteAudio(s.id) }
+                                            }
                                             Button("Delete…", role: .destructive) { pendingDelete = s }
                                         }
                                 }

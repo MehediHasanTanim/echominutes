@@ -215,7 +215,7 @@ struct ExportSheet: View {
             .pickerStyle(.radioGroup)
             Divider()
             HStack {
-                Menu("Export audio…") {
+                Menu("Download audio…") {
                     Button("Everyone (balanced mix)") { state.exportAudio(sessionID, track: .mixed) }
                     Button("Only me") { state.exportAudio(sessionID, track: .mic) }
                     Button("Only the call") { state.exportAudio(sessionID, track: .system) }

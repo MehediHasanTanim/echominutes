@@ -34,7 +34,7 @@ public enum AudioSelfTest {
             p[i] = 0.08 * fade * sinf(2 * .pi * 660 * Float(i) / 48_000)
         }
         do { try engine.start() } catch { return Result(systemPeakDB: -120, micPeakDB: nil, device: "", error: "Couldn't play the test tone: \(error.localizedDescription)") }
-        player.scheduleBuffer(buf, at: nil)
+        player.scheduleBuffer(buf, at: nil, options: [], completionHandler: nil)
         player.play()
         defer { player.stop(); engine.stop() }
 

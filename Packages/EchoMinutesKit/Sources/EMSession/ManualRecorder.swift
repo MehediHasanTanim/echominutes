@@ -102,7 +102,8 @@ public actor ManualRecorder {
         let cap = AggregateCapture(processObjectIDs: procs.map(\.objectID), includeMic: includeMic)
         do {
             try cap.start()
-            let w = try ChunkWriter(source: cap, sessionDirectory: dir, startedAt: now, mode: mode, devices: cap.deviceSummary)
+            let w = try ChunkWriter(source: cap, sessionDirectory: dir, startedAt: now, mode: mode, devices: cap.deviceSummary,
+                                    liveTranscript: LivePreferences.enabled)
             w.start()
             capture = cap; writer = w; session = s
         } catch {
@@ -138,6 +139,12 @@ public actor ManualRecorder {
     public var levels: ChunkWriter.Levels? {
         guard state.isActive, let writer else { return nil }
         return writer.levels
+    }
+
+    /// Audio feed for the live transcript of the active recording (EM-141); nil when off or idle.
+    public var liveTap: LiveAudioTap? {
+        guard state.isActive else { return nil }
+        return writer?.live
     }
 
     /// Milliseconds of audio saved so far (pauses excluded) — the position a bookmark refers to.

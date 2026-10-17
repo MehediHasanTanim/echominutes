@@ -125,6 +125,7 @@ public struct TranscribeJobHandler: JobHandler {
             }
             if needOthers { speakers.append(others) }
             try TranscriptRepository(db).replace(sid, speakers: speakers, segments: segments)
+            LiveTranscriptLog.delete(sessionDirectory: dir)          // the live draft is replaced (EM-145)
 
             var s = try sessions.fetch(sid) ?? session
             if echoRemoved > 0 { s.echoRisk = true }

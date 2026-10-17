@@ -59,6 +59,9 @@ public final class AppState {
     @ObservationIgnored var sleepWatcher: SystemEventsWatcher?
     @ObservationIgnored var detectionTasks: [Task<Void, Never>] = []
     public let notifier = Notifier()
+    /// Live transcript of the active recording (EM-140…148).
+    public let live = LiveTranscript()
+    @ObservationIgnored var liveStarting = false
 
     // Live recording extras (EM-073/074)
     public internal(set) var levels: ChunkWriter.Levels?

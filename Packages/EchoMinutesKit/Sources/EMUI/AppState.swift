@@ -80,6 +80,10 @@ public final class AppState {
     public internal(set) var summaryProgress: [SessionID: JobProgress] = [:]
     public internal(set) var summaryNotes: [SessionID: String] = [:]
     public internal(set) var summaryVersion = 0
+    /// Bumped when user templates change (EM-170) / an Ask answer arrives (EM-175).
+    public internal(set) var templatesVersion = 0
+    public internal(set) var askVersion = 0
+    public internal(set) var askBusy: Set<SessionID> = []
     @ObservationIgnored var jobRunner: JobRunner?
     public struct PlayRequest: Equatable, Sendable { public var sessionID: SessionID; public var ms: Int; public var nonce: Int }
     public internal(set) var playRequest: PlayRequest?

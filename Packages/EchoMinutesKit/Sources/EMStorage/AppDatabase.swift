@@ -32,6 +32,18 @@ public final class AppDatabase: Sendable {
         m.eraseDatabaseOnSchemaChange = false
         #endif
         m.registerMigration("v1") { db in try db.execute(sql: schemaV1) }
+        // Sprint 16: "Ask the meeting" history (user templates use the v1 `templates` table).
+        m.registerMigration("v2-ask") { db in
+            try db.execute(sql: """
+            CREATE TABLE ask_messages (
+              id TEXT PRIMARY KEY,
+              session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+              role TEXT NOT NULL, text TEXT NOT NULL, created_at DATETIME NOT NULL,
+              provider TEXT, model TEXT, tokens_in INTEGER, tokens_out INTEGER, cost_usd REAL
+            );
+            CREATE INDEX idx_ask_session ON ask_messages(session_id, created_at);
+            """)
+        }
         return m
     }
 

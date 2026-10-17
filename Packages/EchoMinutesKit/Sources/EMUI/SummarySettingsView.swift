@@ -29,9 +29,10 @@ struct SummarySettingsView: View {
                 }
                 Picker("Template", selection: $template) {
                     Text("Automatic (from title and opening)").tag("")
-                    ForEach(SummaryTemplate.all) { Text($0.name).tag($0.id) }
+                    ForEach(state.templateLibrary.all) { Text($0.name).tag($0.id) }
                 }
             }
+            TemplatesSection()
             Section("Cost") {
                 LabeledContent("Estimated spend this month", value: String(format: "$%.2f", state.costThisMonth))
                 HStack {

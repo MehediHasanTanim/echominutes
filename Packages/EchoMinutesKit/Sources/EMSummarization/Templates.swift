@@ -8,6 +8,22 @@ public struct SummaryTemplate: Sendable, Equatable, Identifiable {
     public let instructions: String
     /// Lowercased keywords matched against the meeting title and the first minutes of the transcript.
     let keywords: [String]
+    public var isBuiltIn: Bool { Self.all.contains { $0.id == id } }
+
+    public init(id: String, name: String, instructions: String, keywords: [String] = []) {
+        self.id = id; self.name = name; self.instructions = instructions; self.keywords = keywords
+    }
+
+    /// A user template as the prompt sees it: its instructions, plus headings for the key points (EM-171).
+    public init(user t: UserTemplate) {
+        var text = t.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sections = t.sections.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        if !sections.isEmpty {
+            text += "\nGroup key_points under these headings, starting each point with the heading and a colon: "
+                + sections.joined(separator: ", ") + ". Skip a heading if nothing was said about it."
+        }
+        self.init(id: t.id, name: t.name, instructions: text)
+    }
 
     public static let general = SummaryTemplate(id: "general", name: "General meeting", instructions: """
         Summarise the discussion for someone who missed it: what was discussed, what was decided, who will do what.
@@ -44,6 +60,59 @@ public struct SummaryTemplate: Sendable, Equatable, Identifiable {
     public static func match(title: String, transcriptOpening: String) -> SummaryTemplate {
         let hay = (title + "\n" + transcriptOpening).lowercased()
         return all.dropFirst().first { t in t.keywords.contains { hay.contains($0) } } ?? general
+    }
+}
+
+/// Built-in + user templates, and how one is chosen automatically (EM-170/172).
+public struct TemplateLibrary: Sendable, Equatable {
+    public var user: [UserTemplate]
+    public init(user: [UserTemplate] = []) { self.user = user }
+
+    public var all: [SummaryTemplate] { SummaryTemplate.all + user.map(SummaryTemplate.init(user:)) }
+
+    public func byID(_ id: String?) -> SummaryTemplate? {
+        guard let id else { return nil }
+        return SummaryTemplate.byID(id) ?? user.first { $0.id == id }.map(SummaryTemplate.init(user:))
+    }
+
+    public func name(_ id: String?) -> String { byID(id)?.name ?? (id == nil ? SummaryTemplate.general.name : "Deleted template") }
+
+    public enum Reason: Sendable, Equatable { case rule(String), keyword, fallback }
+
+    /// User rules first (by priority), then built-in keywords, then General.
+    public func match(title: String, appID: String?, date: Date, transcriptOpening: String,
+                      calendar: Calendar = .current) -> (template: SummaryTemplate, reason: Reason) {
+        for t in user.sorted(by: { ($0.priority, $0.name) < ($1.priority, $1.name) }) {
+            if let r = t.rule, r.matches(appID: appID, title: title, date: date, calendar: calendar) {
+                return (SummaryTemplate(user: t), .rule(t.name))
+            }
+        }
+        let builtIn = SummaryTemplate.match(title: title, transcriptOpening: transcriptOpening)
+        return (builtIn, builtIn.id == SummaryTemplate.general.id ? .fallback : .keyword)
+    }
+
+    /// Template file contents → templates ready to save: validated, ids that clash get fresh ones (EM-173).
+    public static func importing(_ data: Data, existing: [UserTemplate]) throws -> [UserTemplate] {
+        let file: TemplateFile
+        do { file = try JSONDecoder().decode(TemplateFile.self, from: data) }
+        catch { throw ImportError.problems(["Not an EchoMinutes template file"]) }
+        guard file.format == "echominutes-templates" else { throw ImportError.problems(["Not an EchoMinutes template file"]) }
+        let problems = file.templates.flatMap(\.problems)
+        guard problems.isEmpty else { throw ImportError.problems(problems) }
+        let taken = Set(existing.map(\.id) + SummaryTemplate.all.map(\.id))
+        return file.templates.map { t in
+            var t = t
+            if taken.contains(t.id) { t.id = UserTemplate(name: t.name, instructions: t.instructions).id }
+            return t
+        }
+    }
+
+    public enum ImportError: Error, Equatable, LocalizedError {
+        case problems([String])
+        public var errorDescription: String? {
+            if case .problems(let p) = self { return "Couldn't import: " + p.joined(separator: "; ") }
+            return nil
+        }
     }
 }
 

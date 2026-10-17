@@ -138,22 +138,33 @@ public enum TranscriptRetrieval {
         let avgLen = max(1, Double(docs.reduce(0) { $0 + $1.count }) / n)
         var df: [String: Int] = [:]
         for d in docs { for t in Set(d) where query.contains(t) { df[t, default: 0] += 1 } }
-        let k1 = 1.2, b = 0.75
-        let scores: [(Int, Double)] = docs.enumerated().map { i, d in
+        var scores: [(Int, Double)] = []
+        for (i, d) in docs.enumerated() {
             var tf: [String: Int] = [:]
             for t in d where query.contains(t) { tf[t, default: 0] += 1 }
-            let s = tf.reduce(0.0) { acc, kv in
-                let idf = log(1 + (n - Double(df[kv.key] ?? 0) + 0.5) / (Double(df[kv.key] ?? 0) + 0.5))
-                let f = Double(kv.value)
-                return acc + idf * f * (k1 + 1) / (f + k1 * (1 - b + b * Double(d.count) / avgLen))
+            var s = 0.0
+            for (term, count) in tf {
+                s += bm25(termFrequency: Double(count), docFrequency: Double(df[term] ?? 0), docs: n,
+                          docLength: Double(d.count), averageLength: avgLen)
             }
-            return (i, s)
+            scores.append((i, s))
         }
         let ranked = scores.filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }.map(\.0)
         guard !ranked.isEmpty else { return Array(fill(lines.indices, lines: lines, maxTokens: maxTokens)).sorted().map { lines[$0] } }
         // Each hit brings its neighbours, in rank order, until the budget is used.
         let withContext = ranked.flatMap { [$0, $0 - 1, $0 + 1] }.filter { lines.indices.contains($0) }
         return Array(fill(withContext, lines: lines, maxTokens: maxTokens)).sorted().map { lines[$0] }
+    }
+
+    /// Okapi BM25 term score (k1 = 1.2, b = 0.75).
+    static func bm25(termFrequency f: Double, docFrequency df: Double, docs n: Double, docLength len: Double, averageLength avg: Double) -> Double {
+        let k1 = 1.2
+        let b = 0.75
+        let idf: Double = log(1 + (n - df + 0.5) / (df + 0.5))
+        let norm: Double = 1 - b + b * len / avg
+        let numerator: Double = f * (k1 + 1)
+        let denominator: Double = f + k1 * norm
+        return idf * numerator / denominator
     }
 
     private static func fill<S: Sequence>(_ order: S, lines: [PromptLine], maxTokens: Int) -> Set<Int> where S.Element == Int {

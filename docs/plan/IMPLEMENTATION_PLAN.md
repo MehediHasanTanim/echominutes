@@ -463,15 +463,15 @@ Same rules as Sprints 0–12: 1-week sprints, ~25 h capacity, estimates in hours
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-170 | User templates storage | DB migration for user templates (same JSON shape as built-ins); "Duplicate" a built-in to customise it Built on the existing v1 `templates` table (JSON definition). | 2 | v1.0 |
-| EM-171 | Template editor | Settings ▸ AI Summary: name, focus prompt, sections; "Preview on a past meeting" runs it without saving | 4 | EM-170 |
-| EM-172 | Auto-rules editor | Rules by app, title regex, weekday/time; ordered by priority; "Test against my last 20 meetings" | 3 | EM-170 |
-| EM-173 | Import / export templates | JSON file, validated on import | 1 | EM-170 |
-| EM-174 | Ask engine | Whole transcript in context, or FTS5/BM25 top-k segments for long meetings; answer must cite `[mm:ss]`; citations checked against real segment times Retrieval is in-memory BM25 over the meeting's lines (+ neighbours) rather than FTS5 — same ranking, no index needed per meeting. | 4 | — |
-| EM-175 | Ask tab | Chat in session detail; streams when the provider supports it; citations seek the player; suggested questions Answers arrive whole (no streaming yet: the provider adapters have no streaming API); shows a progress line meanwhile. | 4 | EM-174 |
-| EM-176 | Chat history & cost | Per-session chat stored in DB; cost per answer into cost tracking | 2 | EM-175 |
-| EM-177 | Guards | Transcript delimited as data (prompt-injection guard); `local_only` meetings only use Ollama | 1 | EM-174 |
-| EM-178 | Tests | Template CRUD/rules unit tests; Ask with scripted provider incl. bad citations | 2 | all above |
+| EM-170 ✅ | User templates storage | DB migration for user templates (same JSON shape as built-ins); "Duplicate" a built-in to customise it Built on the existing v1 `templates` table (JSON definition). | 2 | v1.0 |
+| EM-171 ✅ | Template editor | Settings ▸ AI Summary: name, focus prompt, sections; "Preview on a past meeting" runs it without saving | 4 | EM-170 |
+| EM-172 ✅ | Auto-rules editor | Rules by app, title regex, weekday/time; ordered by priority; "Test against my last 20 meetings" | 3 | EM-170 |
+| EM-173 ✅ | Import / export templates | JSON file, validated on import | 1 | EM-170 |
+| EM-174 ✅ | Ask engine | Whole transcript in context, or FTS5/BM25 top-k segments for long meetings; answer must cite `[mm:ss]`; citations checked against real segment times Retrieval is in-memory BM25 over the meeting's lines (+ neighbours) rather than FTS5 — same ranking, no index needed per meeting. | 4 | — |
+| EM-175 ✅ | Ask tab | Chat in session detail; streams when the provider supports it; citations seek the player; suggested questions Answers arrive whole (no streaming yet: the provider adapters have no streaming API); shows a progress line meanwhile. | 4 | EM-174 |
+| EM-176 ✅ | Chat history & cost | Per-session chat stored in DB; cost per answer into cost tracking | 2 | EM-175 |
+| EM-177 ✅ | Guards | Transcript delimited as data (prompt-injection guard); `local_only` meetings only use Ollama | 1 | EM-174 |
+| EM-178 ✅ | Tests | Template CRUD/rules unit tests; Ask with scripted provider incl. bad citations | 2 | all above |
 | | **Sprint total** | | **23** | |
 
 **Demo:** "What did we decide about the release date?" → answer with `[12:40]` that jumps the player there.

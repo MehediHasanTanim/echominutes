@@ -1,5 +1,6 @@
 import AppKit
 import EMCore
+import EMDetection
 import UserNotifications
 
 /// User notifications with actions (EM-071, EM-076): recording started (Stop / Discard), "Record this call?"
@@ -9,6 +10,7 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     enum Category {
         static let started = "RECORDING_STARTED"
         static let ask = "ASK_RECORD"
+        static let askBrowser = "ASK_RECORD_BROWSER"
         static let saved = "RECORDING_SAVED"
         static let info = "INFO"
         static let consent = "CONSENT"
@@ -18,6 +20,7 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         static let discard = "DISCARD"
         static let record = "RECORD"
         static let ignore = "IGNORE"
+        static let never = "NEVER"
         static let open = "OPEN"
         static let copy = "COPY_CONSENT"
     }
@@ -43,6 +46,11 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             UNNotificationCategory(identifier: Category.ask, actions: [
                 UNNotificationAction(identifier: Action.record, title: "Record"),
                 UNNotificationAction(identifier: Action.ignore, title: "Ignore"),
+            ], intentIdentifiers: []),
+            UNNotificationCategory(identifier: Category.askBrowser, actions: [
+                UNNotificationAction(identifier: Action.record, title: "Record"),
+                UNNotificationAction(identifier: Action.ignore, title: "Not now"),
+                UNNotificationAction(identifier: Action.never, title: "Never for browser calls", options: [.destructive]),
             ], intentIdentifiers: []),
             UNNotificationCategory(identifier: Category.saved, actions: [
                 UNNotificationAction(identifier: Action.open, title: "Open", options: [.foreground]),
@@ -104,6 +112,13 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
              category: Category.ask, userInfo: ["appID": appID], sound: true)
     }
 
+    /// A browser uses the mic but the page isn't a known meeting (or titles aren't readable) — EM-155.
+    func askBrowser(browserName: String) {
+        post(id: "ask-\(RuleSet.webOtherID)", title: "\(browserName) is using the microphone — record?",
+             body: "This may be a web meeting. Choose Record to save it (the last few seconds are kept). Ignored automatically in 20 s.",
+             category: Category.askBrowser, userInfo: ["appID": RuleSet.webOtherID], sound: true)
+    }
+
     func removeAsk(appID: String) { remove("ask-\(appID)") }
 
     func otherApp(appName: String, recordingAppName: String) {
@@ -162,6 +177,9 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         case (Category.started, Action.discard): await state.discardRecording()
         case (Category.ask, Action.record): await state.respondToAsk(accept: true)
         case (Category.ask, Action.ignore): await state.respondToAsk(accept: false)
+        case (Category.askBrowser, Action.record): await state.respondToAsk(accept: true)
+        case (Category.askBrowser, Action.ignore): await state.respondToAsk(accept: false)
+        case (Category.askBrowser, Action.never): await state.neverAskBrowserCalls()
         case (Category.consent, _):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(PrivacyPreferences.consentMessage, forType: .string)

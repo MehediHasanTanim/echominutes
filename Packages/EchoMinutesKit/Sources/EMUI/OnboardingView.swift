@@ -95,6 +95,10 @@ public struct OnboardingView: View {
                               settings: { PermissionsModel.open(.notifications) })
                 PermissionRow(title: "System audio recording", detail: "Records the other people — run the test below; macOS asks the first time",
                               status: perms.systemAudio, actionTitle: nil, settings: { PermissionsModel.open(.systemAudio) })
+                PermissionRow(title: "Window titles (Screen Recording)", detail: "Optional — recognises Google Meet / Teams / Zoom in a browser",
+                              status: perms.screenRecording, actionTitle: perms.screenRecording == .granted ? nil : "Allow",
+                              onAction: { Task { await perms.requestScreenRecording() } },
+                              settings: { PermissionsModel.open(.systemAudio) })
             }
             Section("Audio test") {
                 HStack {

@@ -31,6 +31,8 @@ public struct EffectiveRule: Sendable, Equatable, Identifiable {
     public var mode: RecordingMode
     public var debounce: TimeInterval
     public var grace: TimeInterval
+    /// A meeting inside a web browser (EM-153) rather than a desktop app.
+    public var isWeb: Bool = false
     public var id: String { app.id }
 }
 
@@ -44,13 +46,34 @@ public struct RuleSet: Sendable, Equatable {
     public var micOffMaxWhileOutput: TimeInterval
     /// How long an "Ask first" prompt waits before treating it as declined.
     public var askTimeout: TimeInterval
+    /// Browser meetings (EM-150…157).
+    public var browserDetection: Bool
+    public var browsers: [DetectionRules.Browser]
+    public var webMeetings: [DetectionRules.WebMeeting]
+
+    /// Rule id for a browser using the mic on a page that isn't a known meeting ("Browser is using mic — record?").
+    public static let webOtherID = "browser"
 
     public init(base: DetectionRules, overrides: [String: RuleOverride] = [:], privateHours: PrivateHours? = nil,
-                micOffMaxWhileOutput: TimeInterval = 60, askTimeout: TimeInterval = 20) {
+                browserDetection: Bool = true, micOffMaxWhileOutput: TimeInterval = 60, askTimeout: TimeInterval = 20) {
         rules = base.apps.map { app in
             let o = overrides[app.id]
             return EffectiveRule(app: app, mode: o?.mode ?? .auto,
                                  debounce: o?.debounceSec ?? app.debounceSec, grace: o?.graceSec ?? app.graceSec)
+        }
+        browsers = base.browsers
+        webMeetings = base.webMeetings ?? []
+        self.browserDetection = browserDetection && !browsers.isEmpty
+        if self.browserDetection {
+            let prefixes = browsers.flatMap(\.bundlePrefixes)
+            let other = DetectionRules.WebMeeting(id: Self.webOtherID, name: "Browser call", titlePatterns: [], debounceSec: 5, graceSec: 20)
+            for m in webMeetings + [other] {
+                let app = DetectionRules.App(id: m.id, name: m.name, bundlePrefixes: prefixes, startSignal: "mic",
+                                             debounceSec: m.debounceSec, graceSec: m.graceSec, notes: "browser")
+                let o = overrides[m.id]
+                rules.append(EffectiveRule(app: app, mode: o?.mode ?? (m.id == Self.webOtherID ? .ask : .auto),
+                                           debounce: o?.debounceSec ?? m.debounceSec, grace: o?.graceSec ?? m.graceSec, isWeb: true))
+            }
         }
         ignoreBundlePrefixes = base.ignoreBundlePrefixes
         pollInterval = Double(base.pollIntervalMs) / 1000
@@ -65,7 +88,7 @@ public struct RuleSet: Sendable, Equatable {
     public func appID(bundleID: String, owningBundleID: String) -> String? {
         for id in [bundleID, owningBundleID] where !id.isEmpty {
             if ignoreBundlePrefixes.contains(where: { id.hasPrefix($0) }) { return nil }
-            if let r = rules.first(where: { $0.app.matches(bundleID: id) }) { return r.app.id }
+            if let r = rules.first(where: { !$0.isWeb && $0.app.matches(bundleID: id) }) { return r.app.id }
         }
         return nil
     }

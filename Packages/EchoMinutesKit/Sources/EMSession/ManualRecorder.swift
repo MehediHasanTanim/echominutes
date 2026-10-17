@@ -141,6 +141,14 @@ public actor ManualRecorder {
         return writer.levels
     }
 
+    /// Renames the current candidate / recording (EM-156). A candidate keeps it for when it's committed.
+    public func setTitle(_ title: String) {
+        guard var s = session else { return }
+        s.title = title
+        session = s
+        if state.isActive { try? SessionRepository(db).setTitle(s.id, title) }
+    }
+
     /// Audio feed for the live transcript of the active recording (EM-141); nil when off or idle.
     public var liveTap: LiveAudioTap? {
         guard state.isActive else { return nil }

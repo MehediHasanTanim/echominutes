@@ -25,6 +25,8 @@ public actor AutoRecordingHandler: DetectionEffectHandler {
     private let micAllowed: @Sendable () -> Bool
     private let clock: EMClock
     private var finalizing: Task<Void, Never>?
+    /// Snapshot behind the effect being performed (browser + tab title for web meetings).
+    private var context: ActivitySnapshot = [:]
 
     public init(recorder: RecorderControl, rules: RuleSet, clock: EMClock = SystemClock(),
                 micAllowed: @escaping @Sendable () -> Bool = { true }) {
@@ -40,17 +42,42 @@ public actor AutoRecordingHandler: DetectionEffectHandler {
     /// Waits for a background finalize (tests).
     public func waitForFinalize() async { await finalizing?.value }
 
-    private func name(_ id: String) -> String { rules.rule(id)?.app.name ?? id }
+    private func name(_ id: String) -> String {
+        if id == RuleSet.webOtherID, let browser = context[id]?.browserName { return browser }
+        return rules.rule(id)?.app.name ?? id
+    }
+
+    /// The app to capture: for a browser meeting only the browser that holds the mic (EM-154).
+    private func app(_ id: String) -> DetectionRules.App? {
+        guard var app = rules.rule(id)?.app else { return nil }
+        if let a = context[id] {
+            if !a.bundlePrefixes.isEmpty { app.bundlePrefixes = a.bundlePrefixes }
+            if id == RuleSet.webOtherID, let b = a.browserName { app.name = b }
+        }
+        return app
+    }
+
+    /// Browser meetings are named after the meeting tab when it has a useful title (EM-156).
+    private func applyTitle(_ id: String) async {
+        guard rules.rule(id)?.isWeb == true, let title = context[id]?.title else { return }
+        await recorder.setTitle(title)
+    }
+
+    public func perform(_ effect: DetectionEffect, snapshot: ActivitySnapshot) async {
+        context = snapshot
+        await perform(effect)
+    }
 
     public func perform(_ effect: DetectionEffect) async {
         switch effect {
         case .startCandidate(let id, let preRoll):
-            guard let app = rules.rule(id)?.app else { return }
+            guard let app = app(id) else { return }
             guard case .idle = await recorder.state else {
                 Log.info(.session, "Candidate \(id) not captured: recorder busy"); return
             }
             do {
                 try await recorder.startCandidate(app: app, includeMic: micAllowed(), preRoll: preRoll, now: clock.now)
+                await applyTitle(id)
                 continuation.yield(.stateChanged)
             } catch {
                 // Not fatal: beginRecording falls back to a fresh start without pre-roll.
@@ -77,6 +104,7 @@ public actor AutoRecordingHandler: DetectionEffectHandler {
                 case .recording, .paused, .finalizing:
                     Log.info(.session, "Auto-start of \(id) skipped: another recording is active"); return
                 }
+                await applyTitle(id)
                 continuation.yield(.started(sessionID: session.id, appID: id, appName: name(id)))
             } catch {
                 Log.error(.session, "Auto-start failed for \(id): \(error)")
@@ -121,7 +149,7 @@ public actor AutoRecordingHandler: DetectionEffectHandler {
     }
 
     private func startFresh(_ id: String) async throws -> Session {
-        guard let app = rules.rule(id)?.app else { throw EMError.notFound("rule \(id)") }
+        guard let app = app(id) else { throw EMError.notFound("rule \(id)") }
         return try await recorder.start(app: app, includeMic: micAllowed(), origin: .auto, now: clock.now)
     }
 }

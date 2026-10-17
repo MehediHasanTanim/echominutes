@@ -20,10 +20,36 @@ public struct DetectionRules: Codable, Sendable, Equatable {
         /// True if an audio-process bundle ID belongs to this app (prefix match covers helpers/extensions).
         public func matches(bundleID: String) -> Bool { bundlePrefixes.contains { bundleID.hasPrefix($0) } }
     }
-    public struct Browser: Codable, Sendable, Equatable {
+    /// A web browser whose audio processes can carry a web meeting (EM-153).
+    public struct Browser: Codable, Sendable, Equatable, Identifiable {
+        public var id: String
+        public var name: String
         public var bundlePrefixes: [String]
-        public var titlePatterns: [String]
         public var notes: String?
+
+        public init(id: String, name: String, bundlePrefixes: [String], notes: String? = nil) {
+            self.id = id; self.name = name; self.bundlePrefixes = bundlePrefixes; self.notes = notes
+        }
+
+        public func matches(bundleID: String) -> Bool { bundlePrefixes.contains { bundleID.hasPrefix($0) } }
+    }
+
+    /// A meeting web app recognised by the browser window title (EM-153), e.g. Google Meet.
+    public struct WebMeeting: Codable, Sendable, Equatable, Identifiable {
+        public var id: String
+        public var name: String
+        /// Regular expressions (case-insensitive) matched against browser window titles.
+        public var titlePatterns: [String]
+        /// Removed from the window title to get a session title (browser suffixes are removed anyway).
+        public var stripPatterns: [String]?
+        public var debounceSec: Double
+        public var graceSec: Double
+
+        public init(id: String, name: String, titlePatterns: [String], stripPatterns: [String]? = nil,
+                    debounceSec: Double = 5, graceSec: Double = 20) {
+            self.id = id; self.name = name; self.titlePatterns = titlePatterns; self.stripPatterns = stripPatterns
+            self.debounceSec = debounceSec; self.graceSec = graceSec
+        }
     }
 
     public var version: Int
@@ -32,6 +58,8 @@ public struct DetectionRules: Codable, Sendable, Equatable {
     public var ignoreBundlePrefixes: [String]
     public var apps: [App]
     public var browsers: [Browser]
+    /// Meeting web apps detected inside `browsers` (Phase 2). Missing in old rule files.
+    public var webMeetings: [WebMeeting]?
 
     /// Rules bundled with the app (`DetectionRules.json` in the main bundle), or nil if missing/invalid.
     public static func bundled(_ bundle: Bundle = .main) -> DetectionRules? {

@@ -21,6 +21,10 @@ struct DiagnosticsView: View {
                               settings: { PermissionsModel.open(.microphone) })
                 PermissionRow(title: "System audio recording", detail: "Other people on the call — checked by the audio test",
                               status: perms.systemAudio, actionTitle: nil, settings: { PermissionsModel.open(.systemAudio) })
+                PermissionRow(title: "Window titles (Screen Recording)", detail: "Optional — recognises Google Meet / Teams / Zoom in a browser",
+                              status: perms.screenRecording, actionTitle: perms.screenRecording == .granted ? nil : "Allow",
+                              onAction: { Task { await perms.requestScreenRecording() } },
+                              settings: { PermissionsModel.open(.systemAudio) })
                 PermissionRow(title: "Notifications", detail: "Recording started / saved, summaries", status: perms.notifications,
                               actionTitle: perms.notifications == .granted ? nil : "Allow", onAction: { Task { await perms.requestNotifications() } },
                               settings: { PermissionsModel.open(.notifications) })

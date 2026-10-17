@@ -246,7 +246,7 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-093 ✅ | Echo de-dup | Pulled into S7 after the first real transcript: word containment ≥ 0.6 + time overlap (±3 s) → drop duplicate mic segments, set `echo_risk`; Teams speaker-test fixture. RMS ratio not needed so far | 3 | EM-015, EM-090 |
 | EM-094 ✅ | Persist transcript | Write segments + speakers in one transaction; update FTS; status `summarizing` or `ready` | 2 | EM-090 |
 | EM-095 ✅ | Speaker rename | Rename updates `speakers.display_name` (UI hook ready for S11) | 1 | EM-094 |
-| EM-096 ⏸ | Cloud STT engine (optional) — deferred until EM-097 shows Bengali needs it | `OpenAITranscriptionEngine` (chunk upload ≤ size limit, timestamps) — only if S1 showed Bengali needs it; else defer to Phase 2 | 4 | EM-082, EM-026 |
+| EM-096 ✅ | Cloud STT engine (optional) — deferred until EM-097 shows Bengali needs it | `OpenAITranscriptionEngine` (chunk upload ≤ size limit, timestamps) — only if S1 showed Bengali needs it; else defer to Phase 2 | 4 | EM-082, EM-026 |
 | EM-097 🔄 | Quality check (open: needs real 3-person / Bengali / speakers calls) | Run corpus through full pipeline; record WER-style notes, duplicate rate, speaker accuracy. Checklist: `docs/testing/EM-097-transcript-quality.md` | 3 | all above |
 | | **Sprint total** | | **22** | |
 
@@ -442,15 +442,15 @@ Same rules as Sprints 0–12: 1-week sprints, ~25 h capacity, estimates in hours
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-160 | Spike: Slack, FaceTime, Webex | Bundle IDs, which processes hold mic/output during a call (FaceTime → `avconferenced`), huddle vs regular call | 3 | v1.0 |
-| EM-161 | Rules & real-call tuning | Add the three apps to `DetectionRules.json`; 3 calls each with the EM-077 checklist; tune debounce/grace; no false starts from Slack notifications / FaceTime ringing | 4 | EM-160 |
-| EM-162 | Cloud STT base | Shared upload/retry/backoff, language hint, segment mapping to `RawSegment`; keys via Providers/Keychain; STT cost into cost tracking | 2 | — |
-| EM-163 | `DeepgramEngine` | Pre-recorded API, utterances + word timestamps, language per session | 3 | EM-162 |
-| EM-164 | `AssemblyAIEngine` | Upload + poll, timestamps, language detection | 3 | EM-162 |
-| EM-165 | `OpenAITranscriptionEngine` | Chunked upload under the size limit with offset mapping (was EM-096) | 2 | EM-162 |
-| EM-166 | Per-app engine choice | Settings ▸ Transcription: default engine + per-app override; `local_only` apps can never use cloud | 2 | EM-163 |
-| EM-167 | Privacy disclosure | First use of a cloud engine shows what is uploaded and where; logged per session (`sttProvider`) | 1 | EM-166 |
-| EM-168 | Tests & comparison | HTTP-mocked adapter tests from recorded fixtures; run EM-097 corpus through local vs each cloud engine, note WER/speed/cost | 3 | all above |
+| EM-160 🔄 | Spike: Slack, FaceTime, Webex (open: real calls, `docs/spikes/S15-apps-cloud-stt.md` §1) | Bundle IDs, which processes hold mic/output during a call (FaceTime → `avconferenced`), huddle vs regular call | 3 | v1.0 |
+| EM-161 🔄 | Rules & real-call tuning (rules added; open: 3 real calls per app) | Add the three apps to `DetectionRules.json`; 3 calls each with the EM-077 checklist; tune debounce/grace; no false starts from Slack notifications / FaceTime ringing | 4 | EM-160 |
+| EM-162 ✅ | Cloud STT base | Shared upload/retry/backoff, language hint, segment mapping to `RawSegment`; keys via Providers/Keychain; STT cost into cost tracking | 2 | — |
+| EM-163 ✅ | `DeepgramEngine` | Pre-recorded API, utterances + word timestamps, language per session | 3 | EM-162 |
+| EM-164 ✅ | `AssemblyAIEngine` | Upload + poll, timestamps, language detection | 3 | EM-162 |
+| EM-165 ✅ | `OpenAITranscriptionEngine` | Chunked upload under the size limit with offset mapping (was EM-096) | 2 | EM-162 |
+| EM-166 ✅ | Per-app engine choice | Settings ▸ Transcription: default engine + per-app override; `local_only` apps can never use cloud | 2 | EM-163 |
+| EM-167 ✅ | Privacy disclosure | First use of a cloud engine shows what is uploaded and where; logged per session (`sttProvider`) | 1 | EM-166 |
+| EM-168 🔄 | Tests & comparison (unit tests pass; open: engine comparison, §2) | HTTP-mocked adapter tests from recorded fixtures; run EM-097 corpus through local vs each cloud engine, note WER/speed/cost | 3 | all above |
 | | **Sprint total** | | **23** | |
 
 **Demo:** a Bengali WhatsApp call transcribed with Deepgram per the per-app setting; Slack huddle auto-recorded.

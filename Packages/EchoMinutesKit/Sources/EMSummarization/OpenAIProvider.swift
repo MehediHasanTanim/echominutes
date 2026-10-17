@@ -84,6 +84,19 @@ public struct OpenAIProvider: LLMProvider {
     }
 
     public func complete(_ req: LLMRequest) async throws -> LLMResponse {
+        var temperature = !ModelQuirks.noTemperature.contains(req.model)
+        while true {
+            do {
+                return try await send(req, temperature: temperature)
+            } catch LLMError.badRequest(let m?) where temperature && m.lowercased().contains("temperature") {
+                temperature = false
+                ModelQuirks.noTemperature.insert(req.model)
+                Log.info(.llm, "\(req.model) rejected temperature; retrying without it")
+            }
+        }
+    }
+
+    private func send(_ req: LLMRequest, temperature: Bool) async throws -> LLMResponse {
         var messages: [JSONValue] = []
         if let s = req.system { messages.append(["role": "system", "content": .string(s)]) }
         messages += req.messages.map { ["role": .string($0.role.rawValue), "content": .string($0.content)] }
@@ -95,7 +108,7 @@ public struct OpenAIProvider: LLMProvider {
             body["max_completion_tokens"] = .number(Double(req.maxOutputTokens))
         case .openRouter, .compatible:
             body["max_tokens"] = .number(Double(req.maxOutputTokens))
-            body["temperature"] = .number(req.temperature)
+            if temperature { body["temperature"] = .number(req.temperature) }
         }
         if let schema = req.jsonSchema, flavor != .compatible {
             let spec: JSONValue = .object(["name": .string(req.schemaName), "schema": schema, "strict": .bool(false)])

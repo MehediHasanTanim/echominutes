@@ -23,29 +23,35 @@ public struct AnthropicProvider: LLMProvider {
         return (v["data"]?.array ?? []).compactMap { $0["id"]?.string }
     }
 
-    /// Models that rejected a forced `tool_choice` (some newer / thinking models only allow "auto").
-    private static let autoToolOnly = ModelSet()
-
+    /// Newer models reject some parameters (a forced `tool_choice`, `temperature`). On such a 400 the parameter is
+    /// dropped, the request retried, and the model remembered so later calls skip the failed attempt.
     public func complete(_ req: LLMRequest) async throws -> LLMResponse {
-        guard req.jsonSchema != nil, !Self.autoToolOnly.contains(req.model) else {
-            return try await send(req, forceTool: false)
-        }
-        do {
-            return try await send(req, forceTool: true)
-        } catch LLMError.badRequest(let m?) where m.contains("tool_choice") {
-            Log.info(.llm, "\(req.model) doesn't support a forced tool; retrying with tool_choice auto")
-            Self.autoToolOnly.insert(req.model)
-            return try await send(req, forceTool: false)
+        var force = req.jsonSchema != nil && !ModelQuirks.autoToolOnly.contains(req.model)
+        var temperature = !ModelQuirks.noTemperature.contains(req.model)
+        while true {
+            do {
+                return try await send(req, forceTool: force, temperature: temperature)
+            } catch LLMError.badRequest(let m?) {
+                let l = m.lowercased()
+                if force, l.contains("tool_choice") {
+                    force = false; ModelQuirks.autoToolOnly.insert(req.model)
+                } else if temperature, l.contains("temperature") {
+                    temperature = false; ModelQuirks.noTemperature.insert(req.model)
+                } else {
+                    throw LLMError.badRequest(m)
+                }
+                Log.info(.llm, "\(req.model) rejected a parameter (\(m.prefix(80))); retrying without it")
+            }
         }
     }
 
-    private func send(_ req: LLMRequest, forceTool: Bool) async throws -> LLMResponse {
+    private func send(_ req: LLMRequest, forceTool: Bool, temperature: Bool) async throws -> LLMResponse {
         var body: [String: JSONValue] = [
             "model": .string(req.model),
             "max_tokens": .number(Double(req.maxOutputTokens)),
-            "temperature": .number(req.temperature),
             "messages": .array(req.messages.map { ["role": .string($0.role.rawValue), "content": .string($0.content)] }),
         ]
+        if temperature { body["temperature"] = .number(req.temperature) }
         var system = req.system
         if req.jsonSchema != nil, !forceTool {
             system = (system.map { $0 + "\n\n" } ?? "") + "Answer by calling the \(req.schemaName) tool exactly once with the complete result."
@@ -70,6 +76,12 @@ public struct AnthropicProvider: LLMProvider {
         return LLMResponse(text: text, model: v["model"]?.string,
                            inputTokens: v["usage"]?["input_tokens"]?.int, outputTokens: v["usage"]?["output_tokens"]?.int)
     }
+}
+
+/// Per-model API quirks learned at runtime (EM-115).
+enum ModelQuirks {
+    static let autoToolOnly = ModelSet()
+    static let noTemperature = ModelSet()
 }
 
 /// Small thread-safe set of model ids.

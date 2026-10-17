@@ -87,6 +87,21 @@ struct ProviderTests {
         #expect(StubURLProtocol.requests.count == 3)
     }
 
+    @Test func anthropicDropsTemperatureWhenDeprecated() async throws {
+        StubURLProtocol.reset { c in
+            if c.body?["temperature"] != nil {
+                return (400, [:], #"{"type":"error","error":{"type":"invalid_request_error","message":"`temperature` is deprecated for this model."}}"#)
+            }
+            return (200, [:], #"{"content":[{"type":"text","text":"ok"}],"usage":{"input_tokens":1,"output_tokens":1}}"#)
+        }
+        let p = try AnthropicProvider(settings: ProviderSettings(provider: .anthropic, apiKey: "sk-ant-test-123456789"), http: http)
+        let req = LLMRequest(model: "claude-no-temp", messages: [LLMMessage(.user, "hi")])
+        #expect(try await p.complete(req).text == "ok")
+        #expect(StubURLProtocol.requests.map { $0.body?["temperature"] != nil } == [true, false])
+        _ = try await p.complete(req)
+        #expect(StubURLProtocol.requests.count == 3)                         // remembered
+    }
+
     @Test func openAIRequestShapeAndUsage() async throws {
         StubURLProtocol.reset { _ in (200, [:], """
             {"model":"gpt-5-mini","choices":[{"message":{"role":"assistant","content":"{\\"title\\":\\"A\\"}"},"finish_reason":"stop"}],

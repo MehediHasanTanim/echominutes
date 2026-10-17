@@ -401,15 +401,15 @@ Same rules as Sprints 0–12: 1-week sprints, ~25 h capacity, estimates in hours
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-140 | Spike: streaming latency | WhisperKit `tiny`/`base`/`small` on 15-s windows, EN + BN: latency, CPU, accuracy vs final pass. Pick default live model; record in `docs/spikes/S13-live.md` | 3 | v1.0 |
-| EM-141 | Live audio feed | `ChunkWriter` also pushes 16 kHz mono frames per track into a `LiveFeed` ring on its drain queue (no allocation; drops frames if the transcriber lags — recording never waits) | 3 | EM-140 |
-| EM-142 | `LiveTranscriber` actor | Per track, 15-s sliding window with 5-s hop; VAD gate skips silence; commit a line once two consecutive passes agree (local-agreement), keep the tail as "tentative"; HallucinationGuard on output | 5 | EM-141 |
-| EM-143 | Live model & power policy | Separate small model in `STTModelManager`; Settings ▸ Transcription "Live transcript" (off by default); pause on battery < 20% or thermal state ≥ serious, resume after | 2 | EM-142 |
-| EM-144 | Mini-widget live view | Expandable panel: last ~6 lines, "Me" vs call colours, tentative text greyed, auto-scroll with "jump to live"; toggle in widget per spec §5.7 | 3 | EM-142 |
-| EM-145 | Crash-safe live buffer | Committed lines appended to `live.jsonl` in the session folder; shown in session detail until the final transcript replaces it, then deleted | 2 | EM-142 |
-| EM-146 | Live echo handling | Run `EchoDeduplicator` on committed windows so speaker setups don't show lines twice | 1 | EM-142 |
-| EM-147 | Performance budget | `scripts/perf-check.sh … live`: recording + live < 15% CPU, < 400 MB on M-series; recording-only numbers unchanged when live is off | 2 | EM-143 |
-| EM-148 | Tests | Window/commit logic with a scripted engine (no model); feed back-pressure test; 3 real calls side by side with final pass | 2 | all above |
+| EM-140 🔄 | Spike: streaming latency (open: fill `docs/spikes/S13-live.md` on real calls) | WhisperKit `tiny`/`base`/`small` on 15-s windows, EN + BN: latency, CPU, accuracy vs final pass. Pick default live model; record in `docs/spikes/S13-live.md` | 3 | v1.0 |
+| EM-141 ✅ | Live audio feed | `ChunkWriter` also pushes 16 kHz mono frames per track into a `LiveFeed` ring on its drain queue (no allocation; drops frames if the transcriber lags — recording never waits) | 3 | EM-140 |
+| EM-142 ✅ | `LiveTranscriber` actor | Per track, 15-s sliding window with 5-s hop; VAD gate skips silence; commit a line once two consecutive passes agree (local-agreement), keep the tail as "tentative"; HallucinationGuard on output | 5 | EM-141 |
+| EM-143 ✅ | Live model & power policy | Separate small model in `STTModelManager`; Settings ▸ Transcription "Live transcript" (off by default); pause on battery < 20% or thermal state ≥ serious, resume after | 2 | EM-142 |
+| EM-144 ✅ | Mini-widget live view | Expandable panel: last ~6 lines, "Me" vs call colours, tentative text greyed, auto-scroll with "jump to live"; toggle in widget per spec §5.7 | 3 | EM-142 |
+| EM-145 ✅ | Crash-safe live buffer | Committed lines appended to `live.jsonl` in the session folder; shown in session detail until the final transcript replaces it, then deleted | 2 | EM-142 |
+| EM-146 ✅ | Live echo handling | Run `EchoDeduplicator` on committed windows so speaker setups don't show lines twice | 1 | EM-142 |
+| EM-147 🔄 | Performance budget (open: `perf-check.sh 60 live` on a real call) | `scripts/perf-check.sh … live`: recording + live < 15% CPU, < 400 MB on M-series; recording-only numbers unchanged when live is off | 2 | EM-143 |
+| EM-148 ✅ | Tests | Window/commit logic with a scripted engine (no model); feed back-pressure test; 3 real calls side by side with final pass | 2 | all above |
 | | **Sprint total** | | **23** | |
 
 **Demo:** Teams call → mini-widget shows both sides talking within ~5 s; after the call the session shows the final, higher-quality transcript.

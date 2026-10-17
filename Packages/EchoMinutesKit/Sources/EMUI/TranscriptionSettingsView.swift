@@ -11,6 +11,8 @@ struct TranscriptionSettingsView: View {
     @AppStorage(TranscriptionPreferences.modelKey) private var model = STTModelCatalog.defaultVariant
     @AppStorage(TranscriptionPreferences.languageKey) private var language = "en"
     @AppStorage(TranscriptionPreferences.vocabularyKey) private var vocabulary = ""
+    @AppStorage(LivePreferences.enabledKey) private var liveOn = false
+    @AppStorage(LivePreferences.modelKey) private var liveModel = LivePreferences.defaultModel
     @State private var installed: [String: Int64] = [:]
     @State private var downloads = ModelDownloads()
     @State private var error: String?
@@ -57,6 +59,17 @@ struct TranscriptionSettingsView: View {
                 Text("The selected model is downloaded automatically before the first transcription if it isn't installed.")
                     .font(.caption).foregroundStyle(.secondary)
                 if let error { Text(error).font(.caption).foregroundStyle(.red) }
+            }
+            Section("Live transcript") {
+                Toggle("Show a live transcript in the mini widget while recording", isOn: $liveOn)
+                Picker("Live model", selection: $liveModel) {
+                    ForEach(LivePreferences.models, id: \.variant) { Text($0.title).tag($0.variant) }
+                }
+                .disabled(!liveOn)
+                Text(liveOn
+                     ? "Text appears a few seconds after someone speaks. It is a rough draft from a small model: after the call the full-quality transcript replaces it. Uses extra CPU while recording; pauses on low battery, Low Power Mode or when the Mac is hot. The model downloads the first time it's needed. Applies from the next recording."
+                     : "Off: nothing extra runs during calls. The transcript is made after the call.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Custom vocabulary") {
                 TextField("Names, product terms, acronyms — comma separated", text: $vocabulary, axis: .vertical)

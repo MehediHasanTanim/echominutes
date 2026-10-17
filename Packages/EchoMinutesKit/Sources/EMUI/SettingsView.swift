@@ -2,14 +2,14 @@ import EMCore
 import ServiceManagement
 import SwiftUI
 
-/// Settings window with all tabs from Feature Spec §10 (EM-029). Only General is functional so far.
+/// Settings window with all tabs from Feature Spec §10 (EM-029).
 public struct SettingsView: View {
     public init() {}
     public var body: some View {
         TabView {
             GeneralSettingsView().tabItem { Label("General", systemImage: "gearshape") }
             DetectionSettingsView().tabItem { Label("Detection", systemImage: "dot.radiowaves.left.and.right") }
-            PlaceholderSettings(title: "Recording", detail: "Input device, quality, echo handling — Sprint 4").tabItem { Label("Recording", systemImage: "record.circle") }
+            RecordingSettingsView().tabItem { Label("Recording", systemImage: "record.circle") }
             TranscriptionSettingsView().tabItem { Label("Transcription", systemImage: "text.bubble") }
             SummarySettingsView().tabItem { Label("AI Summary", systemImage: "sparkles") }
             ProvidersSettingsView().tabItem { Label("Providers", systemImage: "key") }

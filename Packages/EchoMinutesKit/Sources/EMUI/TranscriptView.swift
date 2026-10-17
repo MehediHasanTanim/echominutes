@@ -15,6 +15,7 @@ struct TranscriptSection: View {
     @State private var speakers: [Speaker] = []
     @State private var renaming: Speaker?
     @State private var newName = ""
+    @State private var draft: [LiveTranscriber.Line] = []
 
     private var byID: [String: Speaker] { Dictionary(uniqueKeysWithValues: speakers.map { ($0.id, $0) }) }
 
@@ -32,7 +33,9 @@ struct TranscriptSection: View {
                 Label("Recorded on the Mac's speakers — the call echo picked up by your mic was removed. Headphones give cleaner transcripts.",
                       systemImage: "speaker.wave.2").font(.caption).foregroundStyle(.secondary)
             }
-            if segments.isEmpty {
+            if segments.isEmpty, !draft.isEmpty {
+                draftLines
+            } else if segments.isEmpty {
                 if state.jobProgress[session.id] == nil, state.jobNotes[session.id] == nil {
                     Text(TranscriptionPreferences.current.autoTranscribe ? "No transcript yet."
                          : "Automatic transcription is off (Settings ▸ Transcription).")
@@ -173,6 +176,30 @@ struct TranscriptSection: View {
         let t = state.transcript(for: session.id)
         segments = t.segments
         speakers = t.speakers
+        // Live draft (EM-145): shown until the full-quality transcript replaces it.
+        draft = t.segments.isEmpty ? (state.paths.map { LiveTranscriptLog.read(sessionDirectory: $0.sessionDir(session.id)) } ?? []) : []
+    }
+
+    private var draftLines: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Draft from the live transcript — replaced by the full transcript when it's ready.", systemImage: "text.bubble")
+                .font(.caption).foregroundStyle(.secondary)
+            ForEach(draft) { line in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Button(Self.clock(line.start)) { playback?.play(atMs: Int(line.start * 1000)) }
+                        .buttonStyle(.link).font(.caption.monospacedDigit())
+                    Text(line.track == .mic ? "Me" : "Call").font(.caption.bold())
+                        .foregroundStyle(line.track == .mic ? Color.accentColor : Color.purple)
+                        .frame(width: 34, alignment: .leading)
+                    Text(line.text).foregroundStyle(.secondary).textSelection(.enabled)
+                }
+            }
+        }
+    }
+
+    private static func clock(_ seconds: Double) -> String {
+        let s = Int(seconds)
+        return s >= 3600 ? String(format: "%d:%02d:%02d", s / 3600, s / 60 % 60, s % 60) : String(format: "%02d:%02d", s / 60, s % 60)
     }
 
     private func save(_ sp: Speaker) {

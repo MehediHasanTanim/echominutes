@@ -22,13 +22,13 @@ extension AppState {
     public func startRecording(_ app: DetectionRules.App) async {
         guard let recorder else { lastError = "Library unavailable"; return }
         lastError = nil
-        if AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
+        if RecordingPreferences.includeMic, AVCaptureDevice.authorizationStatus(for: .audio) != .authorized {
             _ = await AVCaptureDevice.requestAccess(for: .audio)
         }
         // A detection candidate holds the capture; the user's explicit Start wins.
         if case .candidate = await recorder.state { await recorder.cancelCandidate() }
         do {
-            try await recorder.start(app: app, includeMic: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized)
+            try await recorder.start(app: app, includeMic: RecordingPreferences.includeMic && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized)
             notifier.consentReminder(appName: app.name)
             await syncRecordingState()
             reloadSessions()

@@ -25,7 +25,7 @@ extension AppState {
             return
         }
         let handler = AutoRecordingHandler(recorder: recorder, rules: ruleSet,
-                                           micAllowed: { AVCaptureDevice.authorizationStatus(for: .audio) == .authorized })
+                                           micAllowed: { RecordingPreferences.includeMic && AVCaptureDevice.authorizationStatus(for: .audio) == .authorized })
         let coord = DetectionCoordinator(rules: ruleSet, handler: handler)
         let monitor = AudioActivityMonitor(rules: ruleSet)
         let sleep = SystemEventsWatcher()

@@ -11,6 +11,9 @@ import Foundation
 public enum MiniWidgetPreferences {
     public static let enabledKey = "miniWidget.enabled"
     public static var enabled: Bool { UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
+    /// Live transcript panel open under the widget (EM-144).
+    public static let liveExpandedKey = "miniWidget.liveExpanded"
+    public static var liveExpanded: Bool { UserDefaults.standard.object(forKey: liveExpandedKey) as? Bool ?? true }
 }
 
 extension AppState {
@@ -35,6 +38,7 @@ extension AppState {
             t.cancel(); levelTask = nil; levels = nil
         }
 
+        updateLiveTranscript()
         if active, MiniWidgetPreferences.enabled { miniWidget.show(state: self) }
         else if !active { miniWidget.hide() }
     }

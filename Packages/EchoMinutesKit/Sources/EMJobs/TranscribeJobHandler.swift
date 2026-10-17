@@ -86,11 +86,15 @@ public struct TranscribeJobHandler: JobHandler {
                 }
             }
             segments.sort { ($0.startMs, $0.track.rawValue) < ($1.startMs, $1.track.rawValue) }
-            let deduped = EchoDeduplicator.dedupe(segments)
-            if !deduped.removed.isEmpty {
-                Log.info(.stt, "Echo: removed \(deduped.removed.count) mic segment(s) that repeated the call audio")
+            var echoRemoved = 0
+            if RecordingPreferences.echoDedup {   // Settings ▸ Recording
+                let deduped = EchoDeduplicator.dedupe(segments)
+                if !deduped.removed.isEmpty {
+                    Log.info(.stt, "Echo: removed \(deduped.removed.count) mic segment(s) that repeated the call audio")
+                }
+                segments = deduped.segments
+                echoRemoved = deduped.removed.count
             }
-            segments = deduped.segments
 
             // 3. Who is who on the call (Speaker 1…N); falls back to a single "Others".
             var speakers = [me]
@@ -121,9 +125,10 @@ public struct TranscribeJobHandler: JobHandler {
             }
             if needOthers { speakers.append(others) }
             try TranscriptRepository(db).replace(sid, speakers: speakers, segments: segments)
+            LiveTranscriptLog.delete(sessionDirectory: dir)          // the live draft is replaced (EM-145)
 
             var s = try sessions.fetch(sid) ?? session
-            if !deduped.removed.isEmpty { s.echoRisk = true }
+            if echoRemoved > 0 { s.echoRisk = true }
             s.sttEngine = engine.identifier
             s.status = .ready
             try sessions.update(s)

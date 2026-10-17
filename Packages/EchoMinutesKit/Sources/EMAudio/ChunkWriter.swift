@@ -33,6 +33,8 @@ public final class ChunkWriter: @unchecked Sendable {
     public static let outputRate: Double = 48_000
 
     public let sessionDirectory: URL
+    /// Copy of the persisted audio for the live transcript (EM-141); nil when live transcript is off.
+    public let live: LiveAudioTap?
     public let events: AsyncStream<Event>
     private let continuation: AsyncStream<Event>.Continuation
     private let source: CaptureSource
@@ -61,10 +63,11 @@ public final class ChunkWriter: @unchecked Sendable {
 
     public init(source: CaptureSource, sessionDirectory: URL, startedAt: Date = Date(), mode: Mode,
                 chunkSeconds: Double = 30, warnBelowBytes: Int64 = 2_000_000_000, stopBelowBytes: Int64 = 500_000_000,
-                devices: String? = nil) throws {
+                devices: String? = nil, liveTranscript: Bool = false) throws {
         self.source = source
         self.sessionDirectory = sessionDirectory
         self.mode = mode
+        self.live = liveTranscript ? LiveAudioTap(includesMic: source.includesMic) : nil
         self.chunkFrames = Int(chunkSeconds * Self.outputRate)
         self.warnBytes = warnBelowBytes
         self.stopBytes = stopBelowBytes
@@ -173,12 +176,14 @@ public final class ChunkWriter: @unchecked Sendable {
                     try scratchSys.withUnsafeMutableBufferPointer { b in
                         _ = source.systemRing.read(into: b.baseAddress!, maxCount: n)
                         for i in 0..<n { sysPeak = max(sysPeak, abs(b[i])) }
+                        live?.push(.system, b.baseAddress!, count: n, rate: rate)
                         try sys.append(b.baseAddress!, count: n) { closed in self.chunkClosed(.system, closed) }
                     }
                     if let mic {
                         try scratchMic.withUnsafeMutableBufferPointer { b in
                             _ = source.micRing.read(into: b.baseAddress!, maxCount: n)
                             for i in 0..<n { micPeak = max(micPeak, abs(b[i])) }
+                            live?.push(.mic, b.baseAddress!, count: n, rate: rate)
                             try mic.append(b.baseAddress!, count: n) { closed in self.chunkClosed(.mic, closed) }
                         }
                     }
@@ -256,7 +261,7 @@ final class TrackWriter {
         AVFormatIDKey: kAudioFormatMPEG4AAC,
         AVSampleRateKey: ChunkWriter.outputRate,
         AVNumberOfChannelsKey: 1,
-        AVEncoderBitRateKey: 64_000,
+        AVEncoderBitRateKey: RecordingPreferences.bitRate,
     ] }
 
     init(track: TrackKind, sessionDir: URL, chunkFrames: Int) throws {

@@ -24,7 +24,8 @@ public enum SummaryPreferences {
         let store = ProviderStore(db: db)
         let base = SummarizeJobHandler.Config(provider: nil, language: language,
                                               myName: UserDefaults.standard.string(forKey: TranscriptionPreferences.myNameKey) ?? "",
-                                              pricing: Pricing.load(from: pricingURL(paths)), defaultTemplateID: defaultTemplateID)
+                                              pricing: Pricing.load(from: pricingURL(paths)), defaultTemplateID: defaultTemplateID,
+                                              templates: TemplateLibrary(user: (try? TemplateRepository(db).all()) ?? []))
         var cfg = base
         let localOnly = session.sourceAppID.flatMap { (try? SettingsRepository(db).rules())?[$0]?.localOnly } ?? false
         if localOnly {
@@ -94,7 +95,7 @@ extension AppState {
     public var costThisMonth: Double {
         guard let database else { return 0 }
         let start = Calendar.current.dateInterval(of: .month, for: Date())?.start ?? Date()
-        return (try? SummaryRepository(database).totalCost(since: start)) ?? 0
+        return ((try? SummaryRepository(database).totalCost(since: start)) ?? 0) + ((try? AskRepository(database).totalCost(since: start)) ?? 0)
     }
 
     /// Providers ready to use (for "Regenerate with…").

@@ -16,10 +16,12 @@ public struct SummarizeJobHandler: JobHandler {
         public var pricing: Pricing
         /// nil = pick automatically from the title / opening of the transcript.
         public var defaultTemplateID: String?
+        /// Built-in + user templates and their auto-rules (EM-170/172).
+        public var templates: TemplateLibrary
         public init(provider: ProviderSettings?, blockedReason: String? = nil, language: String = "", myName: String = "",
-                    pricing: Pricing = .defaults, defaultTemplateID: String? = nil) {
+                    pricing: Pricing = .defaults, defaultTemplateID: String? = nil, templates: TemplateLibrary = TemplateLibrary()) {
             self.provider = provider; self.blockedReason = blockedReason; self.language = language; self.myName = myName
-            self.pricing = pricing; self.defaultTemplateID = defaultTemplateID
+            self.pricing = pricing; self.defaultTemplateID = defaultTemplateID; self.templates = templates
         }
     }
 
@@ -30,6 +32,19 @@ public struct SummarizeJobHandler: JobHandler {
     public init(db: AppDatabase, config: @escaping @Sendable (Session) -> Config,
                 makeProvider: @escaping @Sendable (ProviderSettings) throws -> LLMProvider = { try ProviderFactory.make($0) }) {
         self.db = db; self.config = config; self.makeProvider = makeProvider
+    }
+
+    /// Transcript lines + meeting metadata as the model sees them (summaries, preview, Ask).
+    public static func promptInput(session: Session, segments: [TranscriptSegment], speakers: [String: Speaker],
+                                   myName: String) -> (MeetingMetadata, [PromptLine]) {
+        let lines = segments.map { s in
+            PromptLine(startMs: s.startMs, speaker: s.speakerID.flatMap { speakers[$0]?.name } ?? (s.track == .mic ? "Me" : "Others"), text: s.text)
+        }
+        let participants = Array(NSOrderedSet(array: lines.map(\.speaker))) as? [String] ?? []
+        let meta = MeetingMetadata(title: session.title, app: session.sourceAppID ?? "call", date: session.startedAt,
+                                   durationMinutes: Int(((session.duration ?? Double(segments.last?.endMs ?? 0) / 1000) / 60).rounded()),
+                                   participants: participants, myName: myName)
+        return (meta, lines)
     }
 
     public func run(_ job: Job, progress: @escaping @Sendable (Double, String) -> Void) async throws {
@@ -47,16 +62,11 @@ public struct SummarizeJobHandler: JobHandler {
         let model = (settings.provider == .azureOpenAI ? settings.azureDeployment : settings.model) ?? ""
         guard !model.isEmpty else { throw JobFailure.permanent("Pick a model for \(settings.provider.displayName) in Settings ▸ Providers.") }
 
-        let lines = segments.map { s in
-            PromptLine(startMs: s.startMs, speaker: s.speakerID.flatMap { speakers[$0]?.name } ?? (s.track == .mic ? "Me" : "Others"), text: s.text)
-        }
+        let (meta, lines) = Self.promptInput(session: session, segments: segments, speakers: speakers, myName: cfg.myName)
         let opening = lines.prefix { $0.startMs < 180_000 }.map(\.text).joined(separator: " ")
-        let template = SummaryTemplate.byID(session.templateID) ?? SummaryTemplate.byID(cfg.defaultTemplateID)
-            ?? SummaryTemplate.match(title: session.title, transcriptOpening: opening)
-        let participants = Array(NSOrderedSet(array: lines.map(\.speaker))) as? [String] ?? []
-        let meta = MeetingMetadata(title: session.title, app: session.sourceAppID ?? "call", date: session.startedAt,
-                                   durationMinutes: Int(((session.duration ?? Double(segments.last?.endMs ?? 0) / 1000) / 60).rounded()),
-                                   participants: participants, myName: cfg.myName)
+        let template = cfg.templates.byID(session.templateID) ?? cfg.templates.byID(cfg.defaultTemplateID)
+            ?? cfg.templates.match(title: session.title, appID: session.sourceAppID, date: session.startedAt,
+                                   transcriptOpening: opening).template
 
         let previous = session.status
         try sessions.setStatus(sid, .summarizing)

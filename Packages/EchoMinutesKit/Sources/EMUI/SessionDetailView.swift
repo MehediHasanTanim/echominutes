@@ -15,7 +15,7 @@ struct SessionDetailView: View {
     @State private var confirmDelete: DeleteKind?
 
     enum Tab: String, CaseIterable, Identifiable {
-        case summary = "Summary", transcript = "Transcript", actions = "Action items", notes = "Notes"
+        case summary = "Summary", transcript = "Transcript", actions = "Action items", ask = "Ask", notes = "Notes"
         var id: String { rawValue }
     }
     enum DeleteKind: Identifiable { case meeting, audio; var id: Int { self == .meeting ? 0 : 1 } }
@@ -94,6 +94,7 @@ struct SessionDetailView: View {
         switch tab {
         case .summary: ScrollView { SummarySection(session: session).padding(.trailing, 8) }
         case .transcript: TranscriptSection(session: session, playback: playback)
+        case .ask: AskView(session: session, playback: playback)
         case .actions: ActionItemsTab(session: session, playback: playback)
         case .notes: NotesTab(session: session)
         }

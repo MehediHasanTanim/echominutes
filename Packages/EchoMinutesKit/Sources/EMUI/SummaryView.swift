@@ -52,7 +52,7 @@ struct SummarySection: View {
             if versions.count > 1 {
                 Picker("", selection: Binding(get: { shown?.id ?? "" }, set: { shownID = $0 })) {
                     ForEach(versions) { v in
-                        Text("\(v.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(SummaryTemplate.byID(v.templateID)?.name ?? "General")\(v.isCurrent ? " ✓" : "")").tag(v.id)
+                        Text("\(v.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(state.templateLibrary.name(v.templateID))\(v.isCurrent ? " ✓" : "")").tag(v.id)
                     }
                 }
                 .labelsHidden().fixedSize()
@@ -63,7 +63,7 @@ struct SummarySection: View {
                 Menu(versions.isEmpty ? "Summarize" : "Regenerate") {
                     Section("Template") {
                         Button("Automatic") { state.summarize(session.id, template: "auto") }
-                        ForEach(SummaryTemplate.all) { t in Button(t.name) { state.summarize(session.id, template: t.id) } }
+                        ForEach(state.templateLibrary.all) { t in Button(t.name) { state.summarize(session.id, template: t.id) } }
                     }
                     if state.readyProviders.count > 1 {
                         Section("Provider") {
@@ -124,7 +124,7 @@ struct SummarySection: View {
         var parts = [s.provider?.displayName, s.model].compactMap { $0 }
         if let i = s.tokensIn, let o = s.tokensOut { parts.append("\(i + o) tokens") }
         if let c = s.costUSD { parts.append(c == 0 ? "free (local)" : String(format: "≈ $%.3f", c)) }
-        parts.append(SummaryTemplate.byID(s.templateID)?.name ?? "General")
+        parts.append(state.templateLibrary.name(s.templateID))
         return Text(parts.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
     }
 

@@ -11,6 +11,7 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         static let ask = "ASK_RECORD"
         static let saved = "RECORDING_SAVED"
         static let info = "INFO"
+        static let consent = "CONSENT"
     }
     enum Action {
         static let stop = "STOP"
@@ -18,6 +19,7 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         static let record = "RECORD"
         static let ignore = "IGNORE"
         static let open = "OPEN"
+        static let copy = "COPY_CONSENT"
     }
     private static let startedID = "recording-started"
 
@@ -46,6 +48,9 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
                 UNNotificationAction(identifier: Action.open, title: "Open", options: [.foreground]),
             ], intentIdentifiers: []),
             UNNotificationCategory(identifier: Category.info, actions: [], intentIdentifiers: []),
+            UNNotificationCategory(identifier: Category.consent, actions: [
+                UNNotificationAction(identifier: Action.copy, title: "Copy message"),
+            ], intentIdentifiers: []),
         ])
         Task {
             do {
@@ -66,6 +71,14 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func removeRecordingStarted() { remove(Self.startedID) }
+
+    /// EM-134: optional reminder to tell participants, with a one-click copy of the consent message.
+    func consentReminder(appName: String) {
+        guard PrivacyPreferences.consentReminder else { return }
+        post(id: "consent", title: "Let participants know you're recording",
+             body: "“\(PrivacyPreferences.consentMessage)” — click Copy message and paste it into the \(appName) chat.",
+             category: Category.consent, userInfo: [:])
+    }
 
     func recordingSaved(sessionID: SessionID, title: String, durationSec: Int) {
         remove(Self.startedID)
@@ -149,6 +162,9 @@ public final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         case (Category.started, Action.discard): await state.discardRecording()
         case (Category.ask, Action.record): await state.respondToAsk(accept: true)
         case (Category.ask, Action.ignore): await state.respondToAsk(accept: false)
+        case (Category.consent, _):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(PrivacyPreferences.consentMessage, forType: .string)
         case (Category.saved, _), (Category.started, UNNotificationDefaultActionIdentifier):
             if let sessionID, let id = SessionID(string: sessionID) { state.selectedSessionID = id }
             state.reloadSessions()

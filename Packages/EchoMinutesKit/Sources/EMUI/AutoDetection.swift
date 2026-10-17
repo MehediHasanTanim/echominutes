@@ -110,6 +110,7 @@ extension AppState {
         switch e {
         case .started(let sid, _, let appName):
             notifier.recordingStarted(sessionID: sid, appName: appName)
+            notifier.consentReminder(appName: appName)
             reloadSessions()
         case .saved(let sid, let title, let dur):
             notifier.recordingSaved(sessionID: sid, title: title, durationSec: dur)

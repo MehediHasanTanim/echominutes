@@ -121,6 +121,7 @@ public final class AppState {
             state.registerHotKeys()
             MainThreadWatchdog.shared.start()
             state.startJobs()
+            state.startRetentionTimer()
             return state
         } catch {
             Log.error(.app, "Storage failed to open: \(error)")

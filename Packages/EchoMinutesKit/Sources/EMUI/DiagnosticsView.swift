@@ -17,12 +17,12 @@ struct DiagnosticsView: View {
         Form {
             Section("Permissions") {
                 PermissionRow(title: "Microphone", detail: "Your voice", status: perms.mic,
-                              action: perms.mic == .granted ? nil : ("Allow", { Task { await perms.requestMic() } }),
+                              actionTitle: perms.mic == .granted ? nil : "Allow", onAction: { Task { await perms.requestMic() } },
                               settings: { PermissionsModel.open(.microphone) })
                 PermissionRow(title: "System audio recording", detail: "Other people on the call — checked by the audio test",
-                              status: perms.systemAudio, action: nil, settings: { PermissionsModel.open(.systemAudio) })
+                              status: perms.systemAudio, actionTitle: nil, settings: { PermissionsModel.open(.systemAudio) })
                 PermissionRow(title: "Notifications", detail: "Recording started / saved, summaries", status: perms.notifications,
-                              action: perms.notifications == .granted ? nil : ("Allow", { Task { await perms.requestNotifications() } }),
+                              actionTitle: perms.notifications == .granted ? nil : "Allow", onAction: { Task { await perms.requestNotifications() } },
                               settings: { PermissionsModel.open(.notifications) })
             }
             Section("Audio test") {
@@ -101,7 +101,8 @@ struct PermissionRow: View {
     let title: String
     let detail: String
     let status: PermissionsModel.Status
-    let action: (String, () -> Void)?
+    let actionTitle: String?
+    var onAction: () -> Void = {}
     let settings: () -> Void
 
     var body: some View {
@@ -112,7 +113,7 @@ struct PermissionRow: View {
                 Text(detail).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            if let action { Button(action.0, action: action.1).controlSize(.small) }
+            if let actionTitle { Button(actionTitle, action: onAction).controlSize(.small) }
             Button("System Settings…", action: settings).controlSize(.small)
         }
     }

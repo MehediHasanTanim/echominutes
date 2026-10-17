@@ -88,13 +88,13 @@ public struct OnboardingView: View {
         Form {
             Section {
                 PermissionRow(title: "Microphone", detail: "Records your side of the call", status: perms.mic,
-                              action: perms.mic == .granted ? nil : ("Allow", { Task { await perms.requestMic() } }),
+                              actionTitle: perms.mic == .granted ? nil : "Allow", onAction: { Task { await perms.requestMic() } },
                               settings: { PermissionsModel.open(.microphone) })
                 PermissionRow(title: "Notifications", detail: "“Recording started”, Stop / Discard, “Summary ready”", status: perms.notifications,
-                              action: perms.notifications == .granted ? nil : ("Allow", { Task { await perms.requestNotifications() } }),
+                              actionTitle: perms.notifications == .granted ? nil : "Allow", onAction: { Task { await perms.requestNotifications() } },
                               settings: { PermissionsModel.open(.notifications) })
                 PermissionRow(title: "System audio recording", detail: "Records the other people — run the test below; macOS asks the first time",
-                              status: perms.systemAudio, action: nil, settings: { PermissionsModel.open(.systemAudio) })
+                              status: perms.systemAudio, actionTitle: nil, settings: { PermissionsModel.open(.systemAudio) })
             }
             Section("Audio test") {
                 HStack {

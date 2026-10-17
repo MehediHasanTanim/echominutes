@@ -71,6 +71,22 @@ struct ProviderTests {
         #expect(req.body?["tools"]?[0]?["input_schema"] == schema)
     }
 
+    @Test func anthropicFallsBackWhenForcedToolIsRejected() async throws {
+        StubURLProtocol.reset { c in
+            if c.body?["tool_choice"]?["type"]?.string == "tool" {
+                return (400, [:], #"{"type":"error","error":{"type":"invalid_request_error","message":"tool_choice: type \"tool\" and \"any\" are not supported for this model"}}"#)
+            }
+            return (200, [:], #"{"content":[{"type":"tool_use","name":"summary","input":{"title":"T"}}],"usage":{"input_tokens":5,"output_tokens":2}}"#)
+        }
+        let p = try AnthropicProvider(settings: ProviderSettings(provider: .anthropic, apiKey: "sk-ant-test-123456789"), http: http)
+        let req = LLMRequest(model: "claude-thinking-only", messages: [LLMMessage(.user, "hi")], jsonSchema: schema, schemaName: "summary")
+        #expect(try await p.complete(req).text == #"{"title":"T"}"#)
+        #expect(StubURLProtocol.requests.map { $0.body?["tool_choice"]?["type"]?.string } == ["tool", "auto"])
+        #expect(StubURLProtocol.requests.last?.body?["system"]?.string?.contains("calling the summary tool") == true)
+        _ = try await p.complete(req)                                     // remembered: goes straight to auto
+        #expect(StubURLProtocol.requests.count == 3)
+    }
+
     @Test func openAIRequestShapeAndUsage() async throws {
         StubURLProtocol.reset { _ in (200, [:], """
             {"model":"gpt-5-mini","choices":[{"message":{"role":"assistant","content":"{\\"title\\":\\"A\\"}"},"finish_reason":"stop"}],

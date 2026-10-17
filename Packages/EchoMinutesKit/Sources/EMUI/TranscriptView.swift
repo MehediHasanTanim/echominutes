@@ -61,6 +61,10 @@ struct TranscriptSection: View {
     }
 
     private var speakerChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) { chipRow }
+    }
+
+    private var chipRow: some View {
         HStack(spacing: 6) {
             ForEach(speakers, id: \.id) { sp in
                 Button {
@@ -69,7 +73,7 @@ struct TranscriptSection: View {
                 } label: {
                     HStack(spacing: 4) {
                         Circle().fill(color(sp)).frame(width: 8, height: 8)
-                        Text(sp.name)
+                        Text(sp.name).lineLimit(1).fixedSize()
                         Image(systemName: "pencil").font(.caption2).foregroundStyle(.secondary)
                     }
                 }

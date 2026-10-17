@@ -217,6 +217,21 @@ struct SpeakerAssignerTests {
         #expect(a.speakerOfSegment == [1, 1, nil, 2])
     }
 
+    @Test func tinyClustersAreFoldedIntoNeighbours() throws {
+        // 30 lines alternating A/B; the diarizer also invents speakers 7 and 8 for two lines.
+        var turns: [SpeakerTurn] = []
+        var segs: [TranscriptSegment] = []
+        for i in 0..<30 {
+            let t = Double(i * 5)
+            let spk = i == 10 ? 7 : (i == 20 ? 8 : i % 2)
+            turns.append(SpeakerTurn(speaker: spk, start: t, end: t + 4))
+            segs.append(seg(t + 0.5, t + 3.5))
+        }
+        let a = try #require(SpeakerAssigner.assign(segs, turns: turns))
+        #expect(a.speakerCount == 2)
+        #expect(a.speakerOfSegment.allSatisfy { $0 != nil })
+    }
+
     @Test func singleSpeakerKeepsOthers() {
         #expect(SpeakerAssigner.assign([seg(1, 4), seg(6, 9)], turns: [SpeakerTurn(speaker: 0, start: 0, end: 10)]) == nil)
         #expect(SpeakerAssigner.assign([seg(1, 4)], turns: []) == nil)

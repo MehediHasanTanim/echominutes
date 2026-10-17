@@ -42,11 +42,37 @@ public enum SpeakerAssigner {
             }
             raw.append(best?.speaker)
         }
+
+        raw = mergeTinySpeakers(raw)
         // Renumber by first appearance → 1…N.
         var order: [Int: Int] = [:]
         for s in raw.compactMap({ $0 }) where order[s] == nil { order[s] = order.count + 1 }
         guard order.count >= 2 else { return nil }
         return Assignment(speakerOfSegment: raw.map { $0.flatMap { order[$0] } }, speakerCount: order.count)
+    }
+}
+
+extension SpeakerAssigner {
+    /// Diarizers over-split long or echoey calls (one person → several clusters). With ≥ 20 call lines, a "speaker"
+    /// owning fewer than max(3, 5 %) of the lines is folded into the speaker of the nearest line that has a big one.
+    static func mergeTinySpeakers(_ raw: [Int?]) -> [Int?] {
+        let assigned = raw.compactMap { $0 }
+        guard assigned.count >= 20 else { return raw }
+        let counts = Dictionary(assigned.map { ($0, 1) }, uniquingKeysWith: +)
+        let minLines = max(3, Int((Double(assigned.count) * 0.05).rounded(.up)))
+        let big = Set(counts.filter { $0.value >= minLines }.keys)
+        guard !big.isEmpty, big.count < counts.count else { return raw }
+        var out = raw
+        for (i, s) in raw.enumerated() {
+            guard let s, !big.contains(s) else { continue }
+            var best: Int?
+            for d in 1..<raw.count {
+                if i - d >= 0, let v = raw[i - d], big.contains(v) { best = v; break }
+                if i + d < raw.count, let v = raw[i + d], big.contains(v) { best = v; break }
+            }
+            out[i] = best
+        }
+        return out
     }
 }
 

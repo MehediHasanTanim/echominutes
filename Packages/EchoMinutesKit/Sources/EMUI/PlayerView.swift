@@ -136,6 +136,19 @@ struct PlayerView: View {
                 Image(systemName: "bookmark")
             }
             .help("Bookmark this moment")
+            Menu {
+                Button("Everyone (balanced mix)") { state.exportAudio(session.id, track: .mixed) }
+                if manifest?.includesMic != false {
+                    Button("Only me") { state.exportAudio(session.id, track: .mic) }
+                    Button("Only the call") { state.exportAudio(session.id, track: .system) }
+                }
+            } label: {
+                Image(systemName: "arrow.down.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Download audio (.m4a)")
         }
         .buttonStyle(.borderless)
         .font(.title3)

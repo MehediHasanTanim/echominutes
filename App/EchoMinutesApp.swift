@@ -32,6 +32,11 @@ struct EchoMinutesApp: App {
         }
         .defaultSize(width: 720, height: 600)
 
+        Window("Welcome to EchoMinutes", id: OnboardingView.windowID) {
+            OnboardingView().environment(state)
+        }
+        .windowResizability(.contentSize)
+
         Settings {
             SettingsView().environment(state)
         }

@@ -43,6 +43,10 @@ public struct MenuContentView: View {
         #endif
         Button("Open Library…") { showLibrary() }
             .keyboardShortcut("l")
+        Button("Setup Guide…") {
+            openWindow(id: OnboardingView.windowID)
+            NSApp.activate()
+        }
         Button("Settings…") {
             NSApp.activate()
             openSettings()
@@ -80,6 +84,14 @@ public struct MenuBarIcon: View {
         .onChange(of: state.libraryOpenRequest) {
             openWindow(id: LibraryView.windowID)
             NSApp.activate()
+        }
+        .task {
+            // First launch: show the setup guide (EM-130).
+            if !OnboardingView.isDone {
+                try? await Task.sleep(for: .milliseconds(600))
+                openWindow(id: OnboardingView.windowID)
+                NSApp.activate()
+            }
         }
     }
 

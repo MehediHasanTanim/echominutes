@@ -326,10 +326,10 @@ The critical path is **capture → detection → transcription**. If a spike fai
 | EM-132 | Diagnostics page | Re-check permissions, 5-s audio test both tracks, detection live view, export redacted log bundle | 3 | EM-067 |
 | EM-133 | Retention & storage | Keep audio N days (transcript kept), storage usage view, cleanup job | 2 | EM-080 |
 | EM-134 | Consent reminder | Optional notification with "Copy consent message" on recording start | 1 | EM-071 |
-| EM-135 | Performance check | Instruments: idle CPU < 1%, recording < 5%, memory < 200 MB; fix hotspots | 3 | — |
-| EM-136 | Manual test matrix | Teams / Zoom / WhatsApp × headphones / speakers / AirPods switch / mute 5 min / app crash / sleep / no network / invalid key | 4 | all |
+| EM-135 | Performance check | Targets: idle CPU < 1%, recording < 5%, memory < 200 MB — measure with `scripts/perf-check.sh` (idle / recording); Instruments for hotspots | 3 | — |
+| EM-136 | Manual test matrix | Matrix in `docs/testing/EM-136-test-matrix.md` | 4 | all |
 | EM-137 | Acceptance sign-off | Verify Feature Spec §14 criteria 1–10; record results in `docs/acceptance-v1.md` | 2 | EM-136 |
-| EM-138 | Release build | Archive, Developer ID sign (+ notarize optional), install to /Applications, enable launch at login; tag `v1.0.0` | 2 | EM-137 |
+| EM-138 | Release build | `scripts/release.sh 1.0.0`: tests → Release build → verify → install to /Applications → tag. Developer ID + notarization only needed to share the app | 2 | EM-137 |
 | | **Sprint total** | | **23** | |
 
 **Exit criteria (MVP done):** all 10 acceptance criteria pass; app used for one full week of real meetings with no lost recordings.

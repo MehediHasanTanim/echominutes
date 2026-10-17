@@ -29,6 +29,7 @@ extension AppState {
         if case .candidate = await recorder.state { await recorder.cancelCandidate() }
         do {
             try await recorder.start(app: app, includeMic: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized)
+            notifier.consentReminder(appName: app.name)
             await syncRecordingState()
             reloadSessions()
         } catch { lastError = error.localizedDescription }

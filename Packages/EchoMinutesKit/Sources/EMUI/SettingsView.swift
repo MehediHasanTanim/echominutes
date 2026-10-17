@@ -13,8 +13,8 @@ public struct SettingsView: View {
             TranscriptionSettingsView().tabItem { Label("Transcription", systemImage: "text.bubble") }
             SummarySettingsView().tabItem { Label("AI Summary", systemImage: "sparkles") }
             ProvidersSettingsView().tabItem { Label("Providers", systemImage: "key") }
-            PlaceholderSettings(title: "Privacy & Storage", detail: "Retention, local-only apps, storage usage — EM-133").tabItem { Label("Privacy", systemImage: "lock.shield") }
-            PlaceholderSettings(title: "Diagnostics", detail: "Permissions, audio test, log export — EM-132").tabItem { Label("Diagnostics", systemImage: "stethoscope") }
+            StorageSettingsView().tabItem { Label("Privacy", systemImage: "lock.shield") }
+            DiagnosticsView().tabItem { Label("Diagnostics", systemImage: "stethoscope") }
         }
         .frame(width: 760, height: 540)
     }

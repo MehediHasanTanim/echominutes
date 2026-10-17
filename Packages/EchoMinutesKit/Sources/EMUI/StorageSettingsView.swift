@@ -46,21 +46,29 @@ extension AppState {
     /// Disk usage of the library (computed off the main thread).
     public func storageUsage() async -> StorageUsage {
         guard let paths else { return StorageUsage() }
+        let sessionsDir = paths.sessionsDir, dbURL = paths.databaseURL, modelsDir = paths.modelsDir
         return await Task.detached(priority: .utility) {
-            var u = StorageUsage()
-            let fm = FileManager.default
-            if let e = fm.enumerator(at: paths.sessionsDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey]) {
-                for case let url as URL in e {
-                    let size = Int64((try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
-                    if url.pathExtension == "m4a" || url.lastPathComponent == "waveform.bin" { u.audio += size } else { u.other += size }
-                }
-            }
-            u.other += Int64((try? paths.databaseURL.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
-            if let e = fm.enumerator(at: paths.modelsDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey]) {
-                for case let url as URL in e { u.models += Int64((try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0) }
-            }
-            return u
+            Self.measure(sessionsDir: sessionsDir, databaseURL: dbURL, modelsDir: modelsDir)
         }.value
+    }
+
+    /// Synchronous walk — FileManager's enumerator can't be iterated from async contexts.
+    nonisolated static func measure(sessionsDir: URL, databaseURL: URL, modelsDir: URL) -> StorageUsage {
+        var u = StorageUsage()
+        let fm = FileManager.default
+        func size(_ url: URL) -> Int64 {
+            Int64((try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]))?.totalFileAllocatedSize ?? 0)
+        }
+        if let e = fm.enumerator(at: sessionsDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey]) {
+            while let url = e.nextObject() as? URL {
+                if url.pathExtension == "m4a" || url.lastPathComponent == "waveform.bin" { u.audio += size(url) } else { u.other += size(url) }
+            }
+        }
+        u.other += size(databaseURL)
+        if let e = fm.enumerator(at: modelsDir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey]) {
+            while let url = e.nextObject() as? URL { u.models += size(url) }
+        }
+        return u
     }
 }
 

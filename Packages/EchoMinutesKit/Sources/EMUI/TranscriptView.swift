@@ -7,7 +7,11 @@ import SwiftUI
 struct TranscriptSection: View {
     @Environment(AppState.self) private var state
     let session: Session
+    var playback: SessionPlayback?
     @State private var segments: [TranscriptSegment] = []
+    @State private var follow = true
+    @State private var editingIndex: Int?
+    @State private var editText = ""
     @State private var speakers: [Speaker] = []
     @State private var renaming: Speaker?
     @State private var newName = ""
@@ -95,26 +99,74 @@ struct TranscriptSection: View {
         }
     }
 
-    private var lines: some View {
-        LazyVStack(alignment: .leading, spacing: 4) {
-                ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
-                    let sp = seg.speakerID.flatMap { byID[$0] }
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(seg.timestamp).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                            .frame(width: 44, alignment: .leading)
-                        Text(sp?.name ?? (seg.track == .mic ? "Me" : "Others")).font(.caption.bold())
-                            .foregroundStyle(sp.map(color) ?? Color.secondary)
-                            .frame(width: 84, alignment: .leading).lineLimit(1)
-                        Text(seg.text).textSelection(.enabled)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, 2)
-                    .contentShape(Rectangle())
-                    .onTapGesture { state.play(session.id, atMs: seg.startMs) }
-                    .help("Click to play from \(seg.timestamp)")
-                }
+    /// Index of the line being played (last line starting at or before the playhead) — binary search.
+    private var currentIndex: Int? {
+        guard let ms = playback?.currentMs, playback?.isPlaying == true || (playback?.currentTime ?? 0) > 0, !segments.isEmpty else { return nil }
+        var lo = 0, hi = segments.count - 1, found: Int?
+        while lo <= hi {
+            let mid = (lo + hi) / 2
+            if segments[mid].startMs <= ms { found = mid; lo = mid + 1 } else { hi = mid - 1 }
         }
-        .padding(.vertical, 4)
+        return found
+    }
+
+    private var lines: some View {
+        let current = currentIndex
+        return ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: 4) {
+                if playback != nil {
+                    Toggle("Follow playback", isOn: $follow).toggleStyle(.checkbox).font(.caption)
+                }
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(segments.enumerated()), id: \.offset) { i, seg in
+                            line(i, seg, isCurrent: i == current).id(i)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+            .onChange(of: current) { _, c in
+                guard follow, let c, editingIndex == nil else { return }
+                withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(c, anchor: .center) }
+            }
+        }
+    }
+
+    @ViewBuilder private func line(_ i: Int, _ seg: TranscriptSegment, isCurrent: Bool) -> some View {
+        let sp = seg.speakerID.flatMap { byID[$0] }
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(seg.timestamp).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .leading)
+            Text(sp?.name ?? (seg.track == .mic ? "Me" : "Others")).font(.caption.bold())
+                .foregroundStyle(sp.map(color) ?? Color.secondary)
+                .frame(width: 84, alignment: .leading).lineLimit(1)
+            if editingIndex == i {
+                TextField("", text: $editText, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { commitEdit(seg) }
+                Button("Save") { commitEdit(seg) }.controlSize(.small)
+                Button("Cancel") { editingIndex = nil }.controlSize(.small)
+            } else {
+                Text(seg.text + (seg.isEdited ? " ✎" : ""))
+                    .onTapGesture(count: 2) { editText = seg.text; editingIndex = i }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.vertical, 2).padding(.horizontal, 4)
+        .background(isCurrent ? Color.accentColor.opacity(0.15) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+        .contentShape(Rectangle())
+        .onTapGesture { if editingIndex != i { play(seg.startMs) } }
+        .help("Click to play from \(seg.timestamp) · double-click the text to correct it")
+    }
+
+    private func play(_ ms: Int) {
+        if let playback { playback.play(atMs: ms) } else { state.play(session.id, atMs: ms) }
+    }
+
+    private func commitEdit(_ seg: TranscriptSegment) {
+        state.editSegment(seg, text: editText)
+        editingIndex = nil
     }
 
     private func load() {

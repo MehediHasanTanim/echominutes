@@ -49,6 +49,12 @@ extension AppState {
         }
     }
 
+    /// Bookmark a moment while listening to a finished meeting.
+    public func addBookmarkToSession(_ id: SessionID, atMs ms: Int) async {
+        guard let database else { return }
+        try? SessionRepository(database).addBookmark(Bookmark(sessionID: id, atMs: ms))
+    }
+
     public func bookmarks(for id: SessionID) -> [Bookmark] {
         guard let database else { return [] }
         return (try? SessionRepository(database).bookmarks(id)) ?? []

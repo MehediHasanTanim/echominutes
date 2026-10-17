@@ -303,7 +303,7 @@ The critical path is **capture → detection → transcription**. If a spike fai
 |---|---|---|---|---|
 | EM-120 | Library list | Sessions grouped Today / This week / Earlier; app icon, duration, status badge; GRDB `ValueObservation` | 3 | EM-024 |
 | EM-121 | Filters & search | App, date range, has action items; FTS5 search with `snippet()` highlights and jump-to-timestamp | 3 | EM-120 |
-| EM-122 | Audio player | `AVPlayer` on `mixed.m4a`, speed, ±15 s, per-track mute via audio mix; waveform canvas from `waveform.bin` with bookmarks | 4 | EM-054 |
+| EM-122 | Audio player | AVAudioPlayer on `mixed.m4a`, speed, ±15 s, “Listen to: Everyone / Only me / Only the call” (keeps the balanced levels, unlike muting raw tracks); waveform canvas from `waveform.bin` with bookmarks | 4 | EM-054 |
 | EM-123 | Transcript view | Lazy list, current-segment highlight (binary search), click-to-seek, inline edit, speaker rename sheet | 4 | EM-122, EM-095 |
 | EM-124 | Summary & Action Items tabs | Render summary sections; checkable/editable action items; copy as checklist; regenerate menu | 3 | EM-114 |
 | EM-125 | Notes tab | Markdown notes per session, autosave | 1 | EM-120 |

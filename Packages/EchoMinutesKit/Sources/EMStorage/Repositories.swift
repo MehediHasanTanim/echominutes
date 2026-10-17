@@ -33,6 +33,27 @@ public struct SessionRepository: Sendable {
         }
     }
 
+    /// Live list for the Library (EM-120): emits the newest `limit` sessions now and after every change.
+    public func observeRecent(limit: Int = 1000) -> AsyncStream<[Session]> {
+        let observation = ValueObservation.tracking { db in
+            try SessionRow.fetchAll(db, sql: "SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?", arguments: [limit]).map(\.model)
+        }
+        let writer = db.writer
+        return AsyncStream { continuation in
+            let cancellable = observation.start(in: writer, scheduling: .async(onQueue: .main),
+                                                onError: { Log.error(.storage, "Session observation failed: \($0)") },
+                                                onChange: { continuation.yield($0) })
+            continuation.onTermination = { _ in cancellable.cancel() }
+        }
+    }
+
+    /// Sessions with at least one unticked action item (Library filter, EM-121).
+    public func withOpenActionItems() throws -> Set<SessionID> {
+        try db.writer.read { db in
+            Set(try String.fetchAll(db, sql: "SELECT DISTINCT session_id FROM action_items WHERE is_done = 0").compactMap(SessionID.init(string:)))
+        }
+    }
+
     public func setStatus(_ id: SessionID, _ status: SessionStatus) throws {
         try db.writer.write {
             try $0.execute(sql: "UPDATE sessions SET status = ?, updated_at = ? WHERE id = ?", arguments: [status.rawValue, Date(), id.description])
@@ -179,6 +200,14 @@ public struct SummaryRepository: Sendable {
         try db.writer.read {
             try ActionItemRow.fetchAll($0, sql: "SELECT * FROM action_items WHERE session_id = ? ORDER BY COALESCE(timestamp_ms, 0), rowid",
                                        arguments: [sessionID.description]).map(\.model)
+        }
+    }
+
+    /// Inline edit of an action item (EM-124).
+    public func updateActionItem(_ item: ActionItem) throws {
+        try db.writer.write {
+            try $0.execute(sql: "UPDATE action_items SET text = ?, owner = ?, due = ?, is_done = ? WHERE id = ?",
+                           arguments: [item.text, item.owner, item.due, item.isDone, item.id])
         }
     }
 

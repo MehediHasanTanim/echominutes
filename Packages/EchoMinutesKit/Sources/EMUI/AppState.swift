@@ -80,6 +80,7 @@ public final class AppState {
     @ObservationIgnored var jobRunner: JobRunner?
     public struct PlayRequest: Equatable, Sendable { public var sessionID: SessionID; public var ms: Int; public var nonce: Int }
     public internal(set) var playRequest: PlayRequest?
+    @ObservationIgnored var handledPlayNonce = 0
 
     public init(paths: AppPaths?, database: AppDatabase?, startupError: String? = nil, rules: DetectionRules? = DetectionRules.bundled()) {
         self.paths = paths
@@ -93,6 +94,19 @@ public final class AppState {
             recorder = nil
         }
         reloadSessions()
+        observeSessions()
+    }
+
+    /// Library list stays live (EM-120): any write to `sessions` — recording, transcription, summary title — re-emits.
+    private func observeSessions() {
+        guard let database else { return }
+        let stream = SessionRepository(database).observeRecent(limit: 1000)
+        Task { [weak self] in
+            for await list in stream {
+                guard let self else { return }
+                if list != self.sessions { self.sessions = list }
+            }
+        }
     }
 
     /// Production wiring: ~/Library/Application Support/EchoMinutes + on-disk database.

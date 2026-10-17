@@ -95,7 +95,7 @@ struct StorageSettingsView: View {
             }
             Section("Keep audio") {
                 Picker("Delete recordings' audio after", selection: $days) {
-                    Text("Never").tag(0); Text("7 days").tag(7); Text("30 days").tag(30); Text("90 days").tag(90); Text("1 year").tag(365)
+                    Text("Never").tag(0); Text("7 days").tag(7); Text("30 days").tag(30); Text("90 days").tag(90); Text("6 months").tag(182); Text("1 year").tag(365)
                 }
                 Text("Transcripts, summaries, notes and action items are always kept.").font(.caption).foregroundStyle(.secondary)
                 if days > 0 {

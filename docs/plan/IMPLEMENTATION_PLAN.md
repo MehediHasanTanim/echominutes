@@ -321,11 +321,11 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-130 | Onboarding flow | Welcome + consent notice → permissions checklist → local/cloud choice + key test → apps to watch (Auto default) → model download → test call | 4 | S6–S10 |
-| EM-131 | Permission checks & deep links | Mic status, notification status, system-audio functional test (test tone), System Settings deep links | 2 | EM-130 |
-| EM-132 | Diagnostics page | Re-check permissions, 5-s audio test both tracks, detection live view, export redacted log bundle | 3 | EM-067 |
-| EM-133 | Retention & storage | Keep audio N days (transcript kept), storage usage view, cleanup job | 2 | EM-080 |
-| EM-134 | Consent reminder | Optional notification with "Copy consent message" on recording start | 1 | EM-071 |
+| EM-130 ✅ | Onboarding flow | Welcome + consent notice → permissions checklist → local/cloud choice + key test → apps to watch (Auto default) → model download → test call | 4 | S6–S10 |
+| EM-131 ✅ | Permission checks & deep links | Mic status, notification status, system-audio functional test (test tone), System Settings deep links | 2 | EM-130 |
+| EM-132 ✅ | Diagnostics page | Re-check permissions, 5-s audio test both tracks, detection live view, export redacted log bundle | 3 | EM-067 |
+| EM-133 ✅ | Retention & storage | Keep audio N days — 7 / 30 / 90 days, 6 months, 1 year (transcript kept), storage usage view, cleanup job | 2 | EM-080 |
+| EM-134 ✅ | Consent reminder | Optional notification with "Copy consent message" on recording start | 1 | EM-071 |
 | EM-135 | Performance check | Targets: idle CPU < 1%, recording < 5%, memory < 200 MB — measure with `scripts/perf-check.sh` (idle / recording); Instruments for hotspots | 3 | — |
 | EM-136 | Manual test matrix | Matrix in `docs/testing/EM-136-test-matrix.md` | 4 | all |
 | EM-137 | Acceptance sign-off | Verify Feature Spec §14 criteria 1–10; record results in `docs/acceptance-v1.md` | 2 | EM-136 |

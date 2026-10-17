@@ -49,13 +49,6 @@ public struct SessionRepository: Sendable {
         }
     }
 
-    /// Sessions with at least one unticked action item (Library filter, EM-121).
-    public func withOpenActionItems() throws -> Set<SessionID> {
-        try db.writer.read { db in
-            Set(try String.fetchAll(db, sql: "SELECT DISTINCT session_id FROM action_items WHERE is_done = 0").compactMap(SessionID.init(string:)))
-        }
-    }
-
     public func setStatus(_ id: SessionID, _ status: SessionStatus) throws {
         try db.writer.write {
             try $0.execute(sql: "UPDATE sessions SET status = ?, updated_at = ? WHERE id = ?", arguments: [status.rawValue, Date(), id.description])
@@ -202,6 +195,13 @@ public struct SummaryRepository: Sendable {
         try db.writer.read {
             try ActionItemRow.fetchAll($0, sql: "SELECT * FROM action_items WHERE session_id = ? ORDER BY COALESCE(timestamp_ms, 0), rowid",
                                        arguments: [sessionID.description]).map(\.model)
+        }
+    }
+
+    /// Sessions with at least one unticked action item (Library filter, EM-121).
+    public func withOpenActionItems() throws -> Set<SessionID> {
+        try db.writer.read { db in
+            Set(try String.fetchAll(db, sql: "SELECT DISTINCT session_id FROM action_items WHERE is_done = 0").compactMap(SessionID.init(string:)))
         }
     }
 

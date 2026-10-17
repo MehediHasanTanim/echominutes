@@ -422,14 +422,14 @@ Same rules as Sprints 0–12: 1-week sprints, ~25 h capacity, estimates in hours
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-150 | Spike: window titles & audio processes | `SCShareableContent` titles for Chrome, Safari, Edge, Arc, Brave, Firefox incl. background tabs / other Spaces / minimised; AX API as fallback; which browser processes hold mic and output (renderer / audio service helpers) Built with `CGWindowListCopyWindowInfo` (sync, no prompt when not permitted) instead of SCShareableContent; verification sheet `docs/spikes/S14-browser.md`. | 3 | v1.0 |
-| EM-151 | Screen Recording permission flow | Optional; requested only when browser detection is turned on; status + deep link in Permissions, Diagnostics and onboarding; detection degrades to the prompt when denied | 2 | EM-150 |
-| EM-152 | `BrowserMatcher` | Only polls titles while a browser holds the mic (2-s throttle, cached); matches `titlePatterns` → platform (meet / teams-web / zoom-web) Built as `BrowserMeetingTracker` + `WebMeetingClassifier` (EMDetection). | 4 | EM-150 |
-| EM-153 | Browser rules | `browsers` section in `DetectionRules.json` + `RuleSet` parsing; per-platform toggles in Settings ▸ Detection | 2 | EM-152 |
-| EM-154 | State machine & capture | Browser meetings as virtual apps (`browser:meet` …) with own debounce/grace; capture taps the browser's audio processes found in EM-150; title change ≠ call end Ids `meet` / `teams-web` / `zoom-web` / `browser`; capture narrowed to the browser holding the mic. | 4 | EM-153 |
-| EM-155 | "Browser is using mic — record?" | No matching title (or no permission) → notification with Record / Not now / Never for this browser; pre-roll kept while asking | 3 | EM-154 |
-| EM-156 | Session title from tab | Clean tab title (strip "– Google Chrome", meeting codes) as the session title | 1 | EM-152 |
-| EM-157 | Tests | Matcher unit tests with real title fixtures; state-machine cases (tab switch, two meetings, mic-only sites like dictation); manual matrix 3 platforms × 2 browsers | 4 | all above |
+| EM-150 🔄 | Spike: window titles & audio processes (open: fill `docs/spikes/S14-browser.md` per browser) | `SCShareableContent` titles for Chrome, Safari, Edge, Arc, Brave, Firefox incl. background tabs / other Spaces / minimised; AX API as fallback; which browser processes hold mic and output (renderer / audio service helpers) Built with `CGWindowListCopyWindowInfo` (sync, no prompt when not permitted) instead of SCShareableContent; verification sheet `docs/spikes/S14-browser.md`. | 3 | v1.0 |
+| EM-151 ✅ | Screen Recording permission flow | Optional; requested only when browser detection is turned on; status + deep link in Permissions, Diagnostics and onboarding; detection degrades to the prompt when denied | 2 | EM-150 |
+| EM-152 ✅ | `BrowserMatcher` | Only polls titles while a browser holds the mic (2-s throttle, cached); matches `titlePatterns` → platform (meet / teams-web / zoom-web) Built as `BrowserMeetingTracker` + `WebMeetingClassifier` (EMDetection). | 4 | EM-150 |
+| EM-153 ✅ | Browser rules | `browsers` section in `DetectionRules.json` + `RuleSet` parsing; per-platform toggles in Settings ▸ Detection | 2 | EM-152 |
+| EM-154 ✅ | State machine & capture | Browser meetings as virtual apps (`browser:meet` …) with own debounce/grace; capture taps the browser's audio processes found in EM-150; title change ≠ call end Ids `meet` / `teams-web` / `zoom-web` / `browser`; capture narrowed to the browser holding the mic. | 4 | EM-153 |
+| EM-155 ✅ | "Browser is using mic — record?" | No matching title (or no permission) → notification with Record / Not now / Never for this browser; pre-roll kept while asking | 3 | EM-154 |
+| EM-156 ✅ | Session title from tab | Clean tab title (strip "– Google Chrome", meeting codes) as the session title | 1 | EM-152 |
+| EM-157 🔄 | Tests (unit tests pass; open: manual matrix in `docs/spikes/S14-browser.md`) | Matcher unit tests with real title fixtures; state-machine cases (tab switch, two meetings, mic-only sites like dictation); manual matrix 3 platforms × 2 browsers | 4 | all above |
 | | **Sprint total** | | **23** | |
 
 **Demo:** join a Google Meet in Chrome → recording starts automatically and is titled from the tab; a browser voice call on an unknown site shows the prompt.

@@ -40,7 +40,9 @@ public struct SessionRepository: Sendable {
         }
         let writer = db.writer
         return AsyncStream { continuation in
-            let cancellable = observation.start(in: writer, scheduling: .async(onQueue: .main),
+            // Own queue (not .main): the consumer hops to the main actor itself, and tests have no main run loop.
+            let queue = DispatchQueue(label: "echominutes.observe.sessions")
+            let cancellable = observation.start(in: writer, scheduling: .async(onQueue: queue),
                                                 onError: { Log.error(.storage, "Session observation failed: \($0)") },
                                                 onChange: { continuation.yield($0) })
             continuation.onTermination = { _ in cancellable.cancel() }

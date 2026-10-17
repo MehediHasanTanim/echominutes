@@ -280,15 +280,15 @@ The critical path is **capture → detection → transcription**. If a spike fai
 
 | ID | Task | Details | Est (h) | Depends |
 |---|---|---|---|---|
-| EM-110 | Summary schema & validator | `SummarySchema` JSON + lightweight validator; decode into `SummaryModel` | 2 | EM-100 |
-| EM-111 | Prompt builder | Transcript formatting `[mm:ss] Speaker: text`, delimiters (prompt-injection guard), template system prompt, metadata | 2 | EM-094 |
-| EM-112 | Built-in templates | General, Stand-up, 1:1, Client call, Interview, Sprint planning, Retro (JSON); auto-rule matching | 3 | EM-111 |
-| EM-113 | Token estimate & map-reduce | Context budget per model; chunk on segment boundaries with overlap; map prompts → reduce prompt | 4 | EM-111 |
-| EM-114 | SummarizeJob | Call provider, validate, retry once with errors, Markdown fallback, persist summary + action items, auto-title | 3 | EM-110, EM-113, EM-080 |
-| EM-115 | Error handling | 401/403 → failed with "Fix key" action; 429/5xx/network → backoff; transcript always preserved | 2 | EM-114 |
-| EM-116 | Cost tracking | `Pricing.json`, cost per summary, monthly total in settings | 2 | EM-114 |
-| EM-117 | Regenerate & local-only | Regenerate with another template/model (keeps history, `is_current`); per-app `local_only` forces Ollama/skip | 2 | EM-114 |
-| EM-118 | Summary quality pass | Run all corpus transcripts through 2 providers; tune prompts | 3 | all above |
+| EM-110 ✅ | Summary schema & validator | `SummarySchema` JSON + lightweight validator; decode into `SummaryModel` | 2 | EM-100 |
+| EM-111 ✅ | Prompt builder | Transcript formatting `[mm:ss] Speaker: text`, delimiters (prompt-injection guard), template system prompt, metadata | 2 | EM-094 |
+| EM-112 ✅ | Built-in templates | General, Stand-up, 1:1, Client call, Interview, Sprint planning, Retro (JSON); auto-rule matching | 3 | EM-111 |
+| EM-113 ✅ | Token estimate & map-reduce | Context budget per model; chunk on segment boundaries with overlap; map prompts → reduce prompt | 4 | EM-111 |
+| EM-114 ✅ | SummarizeJob | Call provider, validate, retry once with errors, Markdown fallback, persist summary + action items, auto-title | 3 | EM-110, EM-113, EM-080 |
+| EM-115 ✅ | Error handling | 401/403 → failed with "Fix key" action; 429/5xx/network → backoff; transcript always preserved | 2 | EM-114 |
+| EM-116 ✅ | Cost tracking | `Pricing.json`, cost per summary, monthly total in settings | 2 | EM-114 |
+| EM-117 ✅ | Regenerate & local-only | Regenerate with another template/model (keeps history, `is_current`); per-app `local_only` forces Ollama/skip | 2 | EM-114 |
+| EM-118 🔄 | Summary quality pass (open: real calls × 2 providers) | Run all corpus transcripts through 2 providers; tune prompts | 3 | all above |
 | | **Sprint total** | | **23** | |
 
 **Demo:** call ends → transcript → summary with TL;DR, decisions and action items appears automatically; notification "Summary ready".

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Product | EchoMinutes (personal macOS utility) |
-| Document | Implementation plan v0.1 |
+| Document | Implementation plan v0.2 |
 | Based on | [FEATURE_SPEC.md](FEATURE_SPEC.md) v0.2 · [TECHNICAL_DESIGN.md](TECHNICAL_DESIGN.md) v0.1 |
 | Owner | Tanim Kabir |
 | Date | 2026-10-14 |
@@ -21,7 +21,7 @@
 | Start | Sprint 0 starts **Mon 2026-10-19** |
 | Hardware | Apple Silicon Mac, macOS 14.4+ (ideally latest macOS), Xcode latest stable |
 | Accounts | Apple Developer account (stable signing identity), at least one LLM API key, test accounts on Teams / Zoom / WhatsApp + a second device/person to make test calls |
-| Scope | Sprints 0–12 = **MVP v1.0** (Feature Spec §13 Phase 1). Sprints 13+ = Phase 2/3 outline |
+| Scope | Sprints 0–12 = **MVP v1.0** (Feature Spec §13 Phase 1). Sprints 13–18 = Phase 2 (**v1.5**), 19–24 = Phase 3 (**v2.0**) — see §5 |
 | Tracking | One checklist item per task ID below (GitHub Issues / Jira / TASKS.md) |
 
 **Estimate legend:** each task row lists effort in hours. Each sprint totals ≤ ~25 h with ~10–15% buffer left for bugs and surprises.
@@ -361,17 +361,265 @@ At ~25 h/week this lands **v1.0 around mid-January 2027**. At full-time pace (~3
 
 ---
 
-## 5. Phase 2 & 3 outline (post-MVP)
+## 5. Phase 2 & 3 — sprint details (post-MVP)
 
-| Sprint | Theme | Main tasks |
+Same rules as Sprints 0–12: 1-week sprints, ~25 h capacity, estimates in hours incl. tests, Definition of Done from §1. Task IDs continue the pattern (S13 → EM-14x, S14 → EM-15x, …). Dates follow the original calendar; shift them to wherever v1.0 actually lands.
+
+### 5.1 Roadmap at a glance
+
+| Sprint | Dates (2027) | Theme | Phase | Key output |
+|---|---|---|---|---|
+| S13 | Jan 18 – Jan 24 | Live transcript | 2 | Near-real-time transcript in the mini-widget (≤ 5 s latency), replaced by the final pass |
+| S14 | Jan 25 – Jan 31 | Browser meetings | 2 | Google Meet / Teams Web / Zoom Web auto-detected; "Browser is using mic — record?" fallback |
+| S15 | Feb 1 – Feb 7 | More apps & cloud STT | 2 | Slack Huddles, FaceTime, Webex; Deepgram / AssemblyAI / OpenAI engines; per-app engine |
+| S16 | Feb 8 – Feb 14 | Templates & Ask | 2 | Template editor with auto-rules; Ask-the-meeting chat with `[mm:ss]` citations |
+| S17 | Feb 15 – Feb 21 | Calendar & exports | 2 | Meetings titled from Calendar, attendees as speaker hints; PDF, DOCX, SRT, VTT export |
+| S18 | Feb 22 – Feb 28 | Signal-level AEC | 2 → **v1.5** | NLMS echo canceller on the mic track before STT for speaker setups |
+| S19 | Mar 1 – Mar 7 | Cross-meeting Q&A | 3 | "Ask all meetings" with citations to meeting + timestamp |
+| S20 | Mar 8 – Mar 14 | Voice-print speakers | 3 | Recognise known people across meetings |
+| S21 | Mar 15 – Mar 21 | Integrations I | 3 | Webhook, Slack, Notion, share sheet / Apple Notes |
+| S22 | Mar 22 – Mar 28 | Integrations II | 3 | Confluence pages, Jira issues from action items |
+| S23 | Mar 29 – Apr 4 | Encryption at rest | 3 | AES-GCM audio + encrypted database, key in Keychain |
+| S24 | Apr 5 – Apr 11 | Bengali UI → **v2.0** | 3 | Full Bengali localisation |
+
+**Already delivered in the MVP (not re-planned):** multi-speaker diarization + speaker rename (EM-095, EM-123), cost tracking (EM-116), built-in templates with auto-rule matching (EM-112), audio download (EM-126).
+
+### 5.2 Before Sprint 13 (carry-overs)
+
+| ID | Item | Why it matters for Phase 2 |
 |---|---|---|
-| S13 | Live transcript | `LiveTranscriber` (small model, 15-s sliding window), mini-widget live view, replaced by final pass |
-| S14 | Browser meetings | Screen Recording permission flow, `SCShareableContent` window titles, browser rules (Meet, Teams Web, Zoom Web), "Browser is using mic — record?" fallback |
-| S15 | More apps & cloud STT | Slack Huddles, FaceTime, Webex detection tuning; Deepgram / AssemblyAI engines; per-app engine choice |
-| S16 | Templates & Ask | Templates editor with auto-rules; Ask-the-meeting chat with `[mm:ss]` citations |
-| S17 | Calendar & exports | EventKit titles/attendees; PDF, DOCX, SRT/VTT export |
-| S18 | Signal-level AEC | NLMS echo canceller before STT for speaker setups |
-| S19+ | Phase 3 | Cross-meeting Q&A, voice-print speaker recognition, Notion/Confluence/Jira/Slack integrations, encryption at rest, Bengali UI |
+| EM-097 | Transcript quality on real 3-person / Bengali / speaker calls | Baseline that S15 (cloud STT) and S18 (AEC) are measured against |
+| EM-118 | Summary quality pass, 2 providers | Baseline for S16 templates and Ask |
+| EM-135 | Performance check | S13 adds a live model; needs the recording-only baseline first |
+| EM-136–138 | Test matrix, acceptance, v1.0 tag | Phase 2 branches from a tagged, stable `main` |
+
+---
+
+### Sprint 13 — Live transcript (Jan 18 – Jan 24)
+
+**Goal:** while recording, show what's being said within ~5 s, without hurting the recording; the final pass still produces the stored transcript (FR-STT-02/03, Tech Design §9.5).
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-140 | Spike: streaming latency | WhisperKit `tiny`/`base`/`small` on 15-s windows, EN + BN: latency, CPU, accuracy vs final pass. Pick default live model; record in `docs/spikes/S13-live.md` | 3 | v1.0 |
+| EM-141 | Live audio feed | `ChunkWriter` also pushes 16 kHz mono frames per track into a `LiveFeed` ring on its drain queue (no allocation; drops frames if the transcriber lags — recording never waits) | 3 | EM-140 |
+| EM-142 | `LiveTranscriber` actor | Per track, 15-s sliding window with 5-s hop; VAD gate skips silence; commit a line once two consecutive passes agree (local-agreement), keep the tail as "tentative"; HallucinationGuard on output | 5 | EM-141 |
+| EM-143 | Live model & power policy | Separate small model in `STTModelManager`; Settings ▸ Transcription "Live transcript" (off by default); pause on battery < 20% or thermal state ≥ serious, resume after | 2 | EM-142 |
+| EM-144 | Mini-widget live view | Expandable panel: last ~6 lines, "Me" vs call colours, tentative text greyed, auto-scroll with "jump to live"; toggle in widget per spec §5.7 | 3 | EM-142 |
+| EM-145 | Crash-safe live buffer | Committed lines appended to `live.jsonl` in the session folder; shown in session detail until the final transcript replaces it, then deleted | 2 | EM-142 |
+| EM-146 | Live echo handling | Run `EchoDeduplicator` on committed windows so speaker setups don't show lines twice | 1 | EM-142 |
+| EM-147 | Performance budget | `scripts/perf-check.sh … live`: recording + live < 15% CPU, < 400 MB on M-series; recording-only numbers unchanged when live is off | 2 | EM-143 |
+| EM-148 | Tests | Window/commit logic with a scripted engine (no model); feed back-pressure test; 3 real calls side by side with final pass | 2 | all above |
+| | **Sprint total** | | **23** | |
+
+**Demo:** Teams call → mini-widget shows both sides talking within ~5 s; after the call the session shows the final, higher-quality transcript.
+
+---
+
+### Sprint 14 — Browser meetings (Jan 25 – Jan 31)
+
+**Goal:** Google Meet, Teams Web and Zoom Web are recorded like desktop apps; unknown browser calls get a one-tap prompt (Feature Spec §3.2, §15 edge case).
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-150 | Spike: window titles & audio processes | `SCShareableContent` titles for Chrome, Safari, Edge, Arc, Brave, Firefox incl. background tabs / other Spaces / minimised; AX API as fallback; which browser processes hold mic and output (renderer / audio service helpers) | 3 | v1.0 |
+| EM-151 | Screen Recording permission flow | Optional; requested only when browser detection is turned on; status + deep link in Permissions, Diagnostics and onboarding; detection degrades to the prompt when denied | 2 | EM-150 |
+| EM-152 | `BrowserMatcher` | Only polls titles while a browser holds the mic (2-s throttle, cached); matches `titlePatterns` → platform (meet / teams-web / zoom-web) | 4 | EM-150 |
+| EM-153 | Browser rules | `browsers` section in `DetectionRules.json` + `RuleSet` parsing; per-platform toggles in Settings ▸ Detection | 2 | EM-152 |
+| EM-154 | State machine & capture | Browser meetings as virtual apps (`browser:meet` …) with own debounce/grace; capture taps the browser's audio processes found in EM-150; title change ≠ call end | 4 | EM-153 |
+| EM-155 | "Browser is using mic — record?" | No matching title (or no permission) → notification with Record / Not now / Never for this browser; pre-roll kept while asking | 3 | EM-154 |
+| EM-156 | Session title from tab | Clean tab title (strip "– Google Chrome", meeting codes) as the session title | 1 | EM-152 |
+| EM-157 | Tests | Matcher unit tests with real title fixtures; state-machine cases (tab switch, two meetings, mic-only sites like dictation); manual matrix 3 platforms × 2 browsers | 4 | all above |
+| | **Sprint total** | | **23** | |
+
+**Demo:** join a Google Meet in Chrome → recording starts automatically and is titled from the tab; a browser voice call on an unknown site shows the prompt.
+
+---
+
+### Sprint 15 — More apps & cloud STT (Feb 1 – Feb 7)
+
+**Goal:** detect three more call apps; offer cloud transcription where local quality isn't enough (esp. Bengali — resolves EM-096).
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-160 | Spike: Slack, FaceTime, Webex | Bundle IDs, which processes hold mic/output during a call (FaceTime → `avconferenced`), huddle vs regular call | 3 | v1.0 |
+| EM-161 | Rules & real-call tuning | Add the three apps to `DetectionRules.json`; 3 calls each with the EM-077 checklist; tune debounce/grace; no false starts from Slack notifications / FaceTime ringing | 4 | EM-160 |
+| EM-162 | Cloud STT base | Shared upload/retry/backoff, language hint, segment mapping to `RawSegment`; keys via Providers/Keychain; STT cost into cost tracking | 2 | — |
+| EM-163 | `DeepgramEngine` | Pre-recorded API, utterances + word timestamps, language per session | 3 | EM-162 |
+| EM-164 | `AssemblyAIEngine` | Upload + poll, timestamps, language detection | 3 | EM-162 |
+| EM-165 | `OpenAITranscriptionEngine` | Chunked upload under the size limit with offset mapping (was EM-096) | 2 | EM-162 |
+| EM-166 | Per-app engine choice | Settings ▸ Transcription: default engine + per-app override; `local_only` apps can never use cloud | 2 | EM-163 |
+| EM-167 | Privacy disclosure | First use of a cloud engine shows what is uploaded and where; logged per session (`sttProvider`) | 1 | EM-166 |
+| EM-168 | Tests & comparison | HTTP-mocked adapter tests from recorded fixtures; run EM-097 corpus through local vs each cloud engine, note WER/speed/cost | 3 | all above |
+| | **Sprint total** | | **23** | |
+
+**Demo:** a Bengali WhatsApp call transcribed with Deepgram per the per-app setting; Slack huddle auto-recorded.
+
+---
+
+### Sprint 16 — Templates & Ask (Feb 8 – Feb 14)
+
+**Goal:** you can write your own summary templates and ask questions about a meeting with answers that link to the moment in the recording (FR-LLM-06, Tech Design §10.4–10.5).
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-170 | User templates storage | DB migration for user templates (same JSON shape as built-ins); "Duplicate" a built-in to customise it | 2 | v1.0 |
+| EM-171 | Template editor | Settings ▸ AI Summary: name, focus prompt, sections; "Preview on a past meeting" runs it without saving | 4 | EM-170 |
+| EM-172 | Auto-rules editor | Rules by app, title regex, weekday/time; ordered by priority; "Test against my last 20 meetings" | 3 | EM-170 |
+| EM-173 | Import / export templates | JSON file, validated on import | 1 | EM-170 |
+| EM-174 | Ask engine | Whole transcript in context, or FTS5/BM25 top-k segments for long meetings; answer must cite `[mm:ss]`; citations checked against real segment times | 4 | — |
+| EM-175 | Ask tab | Chat in session detail; streams when the provider supports it; citations seek the player; suggested questions | 4 | EM-174 |
+| EM-176 | Chat history & cost | Per-session chat stored in DB; cost per answer into cost tracking | 2 | EM-175 |
+| EM-177 | Guards | Transcript delimited as data (prompt-injection guard); `local_only` meetings only use Ollama | 1 | EM-174 |
+| EM-178 | Tests | Template CRUD/rules unit tests; Ask with scripted provider incl. bad citations | 2 | all above |
+| | **Sprint total** | | **23** | |
+
+**Demo:** "What did we decide about the release date?" → answer with `[12:40]` that jumps the player there.
+
+---
+
+### Sprint 17 — Calendar & exports (Feb 15 – Feb 21)
+
+**Goal:** meetings named from your calendar and shareable in common formats (Feature Spec §5.8).
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-180 | Calendar permission | Optional EventKit read access from Settings / onboarding; never writes | 2 | v1.0 |
+| EM-181 | Event matching | Event overlapping the call start (± 5 min); prefer the one whose meeting link matches the app; sets title, `calendarEventId`, attendees | 3 | EM-180 |
+| EM-182 | Attendees as hints | Suggest attendee names in the speaker rename sheet; event title available to template auto-rules | 2 | EM-181 |
+| EM-183 | Calendar settings | Choose calendars; ignore all-day and declined events | 1 | EM-180 |
+| EM-184 | PDF export | Same sections as Markdown export, rendered to paginated PDF | 3 | — |
+| EM-185 | DOCX export | Minimal OOXML writer (headings, lists, checkboxes, transcript table), zipped | 4 | — |
+| EM-186 | SRT / VTT export | From transcript segments with speaker names | 2 | — |
+| EM-187 | Export sheet | Format picker incl. new formats; export several meetings at once from the library | 2 | EM-184 |
+| EM-188 | Tests | Event-matching cases; golden-file tests per export format; DOCX opens in Word/Pages | 3 | all above |
+| | **Sprint total** | | **22** | |
+
+**Demo:** a Zoom call during "Sprint planning" is titled from the calendar; exported as PDF and DOCX; SRT plays as subtitles.
+
+---
+
+### Sprint 18 — Signal-level AEC → v1.5 (Feb 22 – Feb 28)
+
+**Goal:** remove the other people's voices from your mic track when you use speakers, before transcription (Tech Design §7.7 Phase 2).
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-190 | Offline prototype | Script on speaker-setup recordings: delay estimate + NLMS; measure echo reduction (ERLE) and speech damage | 4 | EM-097 corpus |
+| EM-191 | Delay & drift estimation | Cross-correlation (GCC-PHAT) between call and mic tracks per block; track drift over long meetings | 3 | EM-190 |
+| EM-192 | Echo canceller | Partitioned-block frequency-domain NLMS with Accelerate/vDSP; double-talk detector freezes adaptation while you speak | 6 | EM-191 |
+| EM-193 | Pipeline integration | In finalize, when `echoRisk`: write `mic.aec.m4a`; transcription uses it; original kept for playback | 2 | EM-192 |
+| EM-194 | Setting | Settings ▸ Recording ▸ Echo handling: "Remove echo from audio (beta)"; transcript de-dup stays on as a fallback | 1 | EM-193 |
+| EM-195 | Quality evaluation | Duplicate rate and WER on speaker-setup corpus: off / de-dup / AEC / both | 3 | EM-193 |
+| EM-196 | Tests | Synthetic echo with a known impulse response + delay; double-talk case; long-file drift case | 3 | EM-192 |
+| | **Sprint total** | | **22** | |
+
+**Exit criteria (v1.5):** live transcript, browser meetings, cloud STT, templates, Ask, calendar and new exports all shipped; duplicate rate on speaker calls < 2%; tag `v1.5.0`.
+
+---
+
+### Phase 3 sprints (S19 – S24)
+
+Lighter detail — re-estimate at the start of each sprint.
+
+#### Sprint 19 — Cross-meeting Q&A (Mar 1 – Mar 7)
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-200 | Chunking & index | Transcript chunks (~60 s, speaker-aware) with meeting id + time range; built in a background job, incremental | 4 | S16 |
+| EM-201 | Embeddings | Local (`NLContextualEmbedding`) by default; provider embeddings optional; vectors in SQLite | 4 | EM-200 |
+| EM-202 | Hybrid retrieval | FTS5/BM25 + vector similarity, date/app filters, re-rank | 4 | EM-201 |
+| EM-203 | "Ask all meetings" window | Menu bar + library entry; answers cite `Meeting · [mm:ss]` and open that moment | 5 | EM-202 |
+| EM-204 | Privacy & cost | `local_only` meetings never sent to cloud LLMs; cost per question | 2 | EM-203 |
+| EM-205 | Tests | Retrieval quality on a 20-meeting fixture set; citation validity | 4 | all above |
+| | **Sprint total** | | **23** | |
+
+#### Sprint 20 — Voice-print speaker recognition (Mar 8 – Mar 14)
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-210 | Speaker embeddings | Extract per-cluster embeddings from SpeakerKit output and store with the session | 4 | EM-095 |
+| EM-211 | People library | Renaming a speaker offers "Remember this voice"; People list in Settings with delete | 4 | EM-210 |
+| EM-212 | Matching | Match new clusters to known people with a confidence threshold; uncertain → suggestion only | 5 | EM-211 |
+| EM-213 | Consent & privacy | Voice prints stay local, explained in UI; one-click forget person | 2 | EM-211 |
+| EM-214 | Tests | Threshold tuning on corpus; false-match rate target < 5% | 4 | EM-212 |
+| | **Sprint total** | | **19** | |
+
+#### Sprint 21 — Integrations I (Mar 15 – Mar 21)
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-220 | Integration framework | Per-integration settings, Keychain tokens, "on summary ready" trigger + manual "Send to…" menu, retry queue via JobRunner | 4 | v1.0 |
+| EM-221 | Webhook | JSON payload (summary, action items, link to audio not included) with HMAC signature | 2 | EM-220 |
+| EM-222 | Slack | Incoming webhook: formatted summary + action items | 3 | EM-220 |
+| EM-223 | Notion | Create page in chosen database (summary, action items as to-dos, transcript toggle) | 5 | EM-220 |
+| EM-224 | Share sheet & Apple Notes | `NSSharingService` for Mail/Messages/Notes | 2 | — |
+| EM-225 | Tests | Payload golden files; mocked APIs | 3 | all above |
+| | **Sprint total** | | **19** | |
+
+#### Sprint 22 — Integrations II (Mar 22 – Mar 28)
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-230 | Confluence | Create/update a page under a chosen space/parent (storage format), API token auth | 5 | EM-220 |
+| EM-231 | Jira | Create issues from selected action items (project, type, assignee mapping, due date) and link back | 6 | EM-220 |
+| EM-232 | Sent-to tracking | Per-session record of where it was sent with links; avoid duplicates on re-send | 3 | EM-230 |
+| EM-233 | Tests | Mocked REST tests; manual run against a test site/project | 4 | all above |
+| | **Sprint total** | | **18** | |
+
+#### Sprint 23 — Encryption at rest (Mar 29 – Apr 4)
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-240 | Key management | 256-bit key in Keychain (this device only); optional Touch ID unlock | 3 | v1.0 |
+| EM-241 | Encrypted audio | AES-GCM chunked file format for chunks and final tracks; streaming decrypt for player, STT and download | 6 | EM-240 |
+| EM-242 | Encrypted database | SQLCipher build of GRDB; migration of existing library with progress + backup | 6 | EM-240 |
+| EM-243 | Settings & recovery | Turn on/off, export key, warning that losing the key loses the data | 2 | EM-241 |
+| EM-244 | Tests | Round-trip, crash during migration, performance (recording CPU unchanged) | 4 | all above |
+| | **Sprint total** | | **21** | |
+
+#### Sprint 24 — Bengali UI → v2.0 (Apr 5 – Apr 11)
+
+| ID | Task | Details | Est (h) | Depends |
+|---|---|---|---|---|
+| EM-250 | String catalogue | Move all UI strings to `Localizable.xcstrings`; pseudo-locale pass for truncation | 5 | — |
+| EM-251 | Bengali translation | Translate UI, notifications, onboarding; Bengali digits/dates via locale formatters | 6 | EM-250 |
+| EM-252 | Summary language | Summaries/Ask answer in Bengali when chosen (prompt + schema keys stay English) | 2 | EM-251 |
+| EM-253 | Review & fixes | Native-speaker review; layout fixes for longer strings | 4 | EM-251 |
+| EM-254 | Release v2.0 | Test matrix delta, tag `v2.0.0` | 3 | all above |
+| | **Sprint total** | | **20** | |
+
+### 5.3 Effort summary (Phase 2 & 3)
+
+| Sprint | Theme | Hours |
+|---|---|---|
+| S13 | Live transcript | 23 |
+| S14 | Browser meetings | 23 |
+| S15 | More apps & cloud STT | 23 |
+| S16 | Templates & Ask | 23 |
+| S17 | Calendar & exports | 22 |
+| S18 | Signal-level AEC | 22 |
+| **Phase 2** | **6 sprints → v1.5** | **136 h** |
+| S19 | Cross-meeting Q&A | 23 |
+| S20 | Voice-print speakers | 19 |
+| S21 | Integrations I | 19 |
+| S22 | Integrations II | 18 |
+| S23 | Encryption at rest | 21 |
+| S24 | Bengali UI | 20 |
+| **Phase 3** | **6 sprints → v2.0** | **120 h** |
+
+Phase 3 sprints are deliberately lighter: they leave room for bugs reported from daily use of v1.5.
+
+### 5.4 Phase 2/3 checkpoints
+
+| When | Checkpoint | If it fails |
+|---|---|---|
+| End EM-140 | Live latency ≤ 5 s at acceptable CPU | Ship live transcript for the call track only, or local "tiny" model + note in UI |
+| End EM-150 | Browser titles readable without Screen Recording being annoying | Rely on the "Browser is using mic — record?" prompt; titles optional |
+| End S15 | A cloud engine clearly beats local on Bengali | Keep local default; cloud as opt-in per app only |
+| End EM-190 | AEC reduces duplicates without damaging your voice | Keep transcript-level de-dup only; drop EM-192–194 |
+| End S20 | False speaker matches < 5% | Keep voice prints as suggestions only |
+| End EM-242 | DB encryption migration safe on a large library | Encrypt audio only; DB relies on FileVault |
 
 ---
 
@@ -401,3 +649,4 @@ At ~25 h/week this lands **v1.0 around mid-January 2027**. At full-time pace (~3
 ## Changelog
 
 - **v0.1 (2026-10-14)** — Initial sprint plan: 13 one-week sprints to MVP v1.0 (~296 h), Phase 2/3 outline.
+- **v0.2 (2026-10-17)** — Phase 2 & 3 expanded into sprint-level tasks: S13–S18 (EM-140…196, ~136 h → v1.5) and S19–S24 (EM-200…254, ~120 h → v2.0); carry-overs and checkpoints.

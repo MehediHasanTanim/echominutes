@@ -9,12 +9,19 @@ actor FakeRecorder: RecorderControl {
     var state: ManualRecorder.State = .idle
     var calls: [String] = []
     var failStart = false
+    var lastApp: DetectionRules.App?
     private var current: Session?
+
+    func setTitle(_ title: String) async {
+        calls.append("title:\(title)")
+        current?.title = title
+    }
 
     func startCandidate(app: DetectionRules.App, includeMic: Bool, preRoll: TimeInterval, now: Date) async throws {
         guard case .idle = state else { throw EMError.invalidData("busy") }
         if failStart { throw EMError.invalidData("no processes") }
         calls.append("candidate:\(app.id):\(Int(preRoll))")
+        lastApp = app
         let s = Session(title: "\(app.name) call", sourceAppID: app.id, startedAt: now, status: .recording)
         current = s
         state = .candidate(.init(sessionID: s.id, appID: app.id, appName: app.name, startedAt: now, origin: .auto))
@@ -37,6 +44,7 @@ actor FakeRecorder: RecorderControl {
         guard case .idle = state else { throw EMError.invalidData("busy") }
         if failStart { throw EMError.invalidData("no processes") }
         calls.append("start:\(app.id):\(origin.rawValue)")
+        lastApp = app
         let s = Session(title: "\(app.name) call", sourceAppID: app.id, startedAt: now, status: .recording)
         current = s
         state = .recording(.init(sessionID: s.id, appID: app.id, appName: app.name, startedAt: now, origin: origin))

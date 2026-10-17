@@ -10,6 +10,12 @@ public protocol RecorderControl: Sendable {
     func start(app: DetectionRules.App, includeMic: Bool, origin: ManualRecorder.Origin, now: Date) async throws -> Session
     func stop(now: Date) async throws -> Session
     func discard() async throws
+    /// Renames the current candidate / recording (browser meetings: title from the tab, EM-156).
+    func setTitle(_ title: String) async
+}
+
+extension RecorderControl {
+    public func setTitle(_ title: String) async {}
 }
 
 extension ManualRecorder: RecorderControl {}

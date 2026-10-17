@@ -21,6 +21,9 @@ struct DetectionSettingsView: View {
     @AppStorage(DetectionPreferences.privateHoursOnKey) private var privateOn = false
     @AppStorage(DetectionPreferences.privateHoursStartKey) private var privateStart = 22 * 60
     @AppStorage(DetectionPreferences.privateHoursEndKey) private var privateEnd = 7 * 60
+    @AppStorage(DetectionPreferences.browserEnabledKey) private var browserOn = true
+    @State private var titlesAllowed = SystemWindowTitles.permitted
+    @State private var perms = PermissionsModel()
     @State private var rows: [Row] = []
     @State private var saveError: String?
 
@@ -31,6 +34,24 @@ struct DetectionSettingsView: View {
                     .onChange(of: enabled) { _, on in Task { await state.setDetectionEnabled(on) } }
                 Text("A call is detected when a watched app turns on the microphone. Recording starts after the start delay (the audio from the beginning is kept) and stops when the call has been silent for the stop delay.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Browser meetings") {
+                Toggle("Detect meetings in web browsers (Google Meet, Teams and Zoom on the web)", isOn: $browserOn)
+                    .onChange(of: browserOn) { Task { await state.restartDetection(); load() } }
+                if browserOn {
+                    HStack {
+                        Image(systemName: titlesAllowed ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(titlesAllowed ? .green : .secondary)
+                        Text(titlesAllowed ? "Window titles readable — meetings are recognised by their tab"
+                                           : "Window titles not readable — you'll be asked “Browser is using the microphone — record?”")
+                        Spacer()
+                        if !titlesAllowed {
+                            Button("Allow…") { Task { await perms.requestScreenRecording(); titlesAllowed = SystemWindowTitles.permitted } }
+                        }
+                    }
+                    Text("Needs Screen & System Audio Recording permission for EchoMinutes (only window titles are read — nothing on screen is recorded). After allowing it, quit and reopen EchoMinutes. The meeting must be the visible tab of a browser window; otherwise you get the question instead. Recording captures all audio of that browser, so pause other tabs that play sound.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section("Watched apps") {
                 ForEach($rows) { $row in
@@ -72,7 +93,7 @@ struct DetectionSettingsView: View {
             if let saveError { Text(saveError).foregroundStyle(.red).font(.caption) }
         }
         .formStyle(.grouped)
-        .onAppear(perform: load)
+        .onAppear { load(); titlesAllowed = SystemWindowTitles.permitted }
         .onChange(of: rows) { old, new in if !old.isEmpty { save(new) } }
         .onChange(of: privateOn) { state.applyDetectionSettings() }
         .onChange(of: privateStart) { state.applyDetectionSettings() }

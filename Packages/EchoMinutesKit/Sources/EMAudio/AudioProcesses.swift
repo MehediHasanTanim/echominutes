@@ -35,6 +35,11 @@ public enum AudioProcesses {
         }
     }
 
+    /// Bundle ID of the app a process belongs to (outermost `.app` of its executable), e.g. a browser window's owner.
+    public static func appBundleID(pid: pid_t) -> String? {
+        ProcPath.path(pid).flatMap(ProcPath.owningAppBundleID)
+    }
+
     /// All processes belonging to `app` (bundle prefix on audio bundle ID or owning app), excluding `selfPID` (EM-041).
     public static func resolve(_ app: DetectionRules.App, in processes: [AudioProcessInfo], selfPID: pid_t = getpid()) -> [AudioProcessInfo] {
         processes.filter { p in

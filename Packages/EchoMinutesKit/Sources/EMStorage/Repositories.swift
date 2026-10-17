@@ -49,6 +49,12 @@ public struct SessionRepository: Sendable {
         }
     }
 
+    public func setTitle(_ id: SessionID, _ title: String) throws {
+        try db.writer.write {
+            try $0.execute(sql: "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?", arguments: [title, Date(), id.description])
+        }
+    }
+
     public func setStatus(_ id: SessionID, _ status: SessionStatus) throws {
         try db.writer.write {
             try $0.execute(sql: "UPDATE sessions SET status = ?, updated_at = ? WHERE id = ?", arguments: [status.rawValue, Date(), id.description])

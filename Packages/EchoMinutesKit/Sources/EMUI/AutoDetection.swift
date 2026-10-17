@@ -15,7 +15,8 @@ extension AppState {
         if let database, let saved = try? SettingsRepository(database).rules() {
             for (id, o) in saved { overrides[id] = RuleOverride(mode: o.mode, debounceSec: o.debounceSec, graceSec: o.graceSec) }
         }
-        return RuleSet(base: rules, overrides: overrides, privateHours: DetectionPreferences.privateHours)
+        return RuleSet(base: rules, overrides: overrides, privateHours: DetectionPreferences.privateHours,
+                       browserDetection: DetectionPreferences.browserEnabled)
     }
 
     public func startDetection() {
@@ -92,7 +93,28 @@ extension AppState {
     /// The meeting app currently being asked about, if any.
     public var askingAppName: String? {
         guard case .asking(let id, _, _) = detectionPhase else { return nil }
-        return rules?.apps.first { $0.id == id }?.name ?? id
+        if id == RuleSet.webOtherID { return lastSnapshot[id]?.browserName ?? "browser" }
+        return currentRuleSet()?.rule(id)?.app.name ?? id
+    }
+
+    /// Restarts detection so the monitor picks up changed rules (e.g. browser detection on/off).
+    public func restartDetection() async {
+        guard detectionRunning else { return }
+        await stopDetection()
+        startDetection()
+    }
+
+    /// "Never for browser calls" on the browser prompt (EM-155): unknown browser mic use is ignored from now on.
+    public func neverAskBrowserCalls() async {
+        if let database {
+            let repo = SettingsRepository(database)
+            let current = (try? repo.rules())?[RuleSet.webOtherID]
+            try? repo.saveRule(AppRuleOverride(appID: RuleSet.webOtherID, mode: .never, debounceSec: current?.debounceSec,
+                                               graceSec: current?.graceSec, localOnly: current?.localOnly ?? false))
+        }
+        await respondToAsk(accept: false)
+        applyDetectionSettings()
+        Log.info(.detection, "Browser calls: never ask")
     }
 
     func detectionUpdated(_ u: DetectionCoordinator.Update) async {
@@ -120,7 +142,7 @@ extension AppState {
             notifier.removeRecordingStarted()
             reloadSessions()
         case .ask(let id, let appName):
-            notifier.ask(appID: id, appName: appName)
+            if id == RuleSet.webOtherID { notifier.askBrowser(browserName: appName) } else { notifier.ask(appID: id, appName: appName) }
         case .dismissAsk(let id):
             notifier.removeAsk(appID: id)
         case .otherApp(let appName, let recordingAppName):

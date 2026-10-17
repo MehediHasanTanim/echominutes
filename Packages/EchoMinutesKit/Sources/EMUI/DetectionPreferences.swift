@@ -8,6 +8,10 @@ public enum DetectionPreferences {
     public static let privateHoursStartKey = "detection.privateHours.start"   // minutes since midnight
     public static let privateHoursEndKey = "detection.privateHours.end"
 
+    /// Detect meetings in web browsers (Google Meet, Teams / Zoom web) — EM-153.
+    public static let browserEnabledKey = "detection.browser.enabled"
+    public static var browserEnabled: Bool { UserDefaults.standard.object(forKey: browserEnabledKey) as? Bool ?? true }
+
     public static var enabled: Bool {
         UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true
     }

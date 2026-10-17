@@ -2,6 +2,7 @@ import AppKit
 import AVFoundation
 import EMAudio
 import EMCore
+import EMDetection
 import Observation
 import UserNotifications
 
@@ -18,6 +19,8 @@ final class PermissionsModel {
     var mic: Status = .unknown
     var notifications: Status = .unknown
     var systemAudio: Status = .notAsked
+    /// Screen Recording = readable window titles for browser meeting detection (EM-151).
+    var screenRecording: Status = .unknown
     var lastTest: AudioSelfTest.Result?
     var testing = false
 
@@ -27,6 +30,7 @@ final class PermissionsModel {
         case .notDetermined: mic = .notAsked
         default: mic = .denied
         }
+        screenRecording = SystemWindowTitles.permitted ? .granted : .notAsked
         let s = await UNUserNotificationCenter.current().notificationSettings()
         switch s.authorizationStatus {
         case .authorized, .provisional, .ephemeral: notifications = .granted
@@ -45,6 +49,13 @@ final class PermissionsModel {
         _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
         await refresh()
         if notifications == .denied { Self.open(.notifications) }
+    }
+
+    /// Shows the macOS prompt the first time; afterwards opens System Settings. macOS applies the change after
+    /// EchoMinutes is reopened.
+    func requestScreenRecording() async {
+        if !CGRequestScreenCaptureAccess() { Self.open(.systemAudio) }
+        await refresh()
     }
 
     /// Plays a test tone and records it (system audio) + the mic. First run shows the macOS prompts.

@@ -40,6 +40,10 @@ public enum SessionGrouping {
         case "slack": "Slack"
         case "facetime": "FaceTime"
         case "webex": "Webex"
+        case "meet": "Google Meet"
+        case "teams-web": "Microsoft Teams (web)"
+        case "zoom-web": "Zoom (web)"
+        case "browser": "Browser call"
         case "manual": "Manual recording"
         case let other?: other.capitalized
         case nil: "Unknown app"
@@ -52,6 +56,7 @@ public enum SessionGrouping {
         case "zoom": "video.fill"
         case "whatsapp": "phone.fill"
         case "manual": "mic.fill"
+        case "meet", "teams-web", "zoom-web", "browser": "globe"
         default: "waveform"
         }
     }

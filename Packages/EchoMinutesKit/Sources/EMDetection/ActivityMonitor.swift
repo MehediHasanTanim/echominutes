@@ -10,8 +10,15 @@ public struct AppActivity: Sendable, Equatable {
     public var mic: Bool            // any process using the microphone
     public var output: Bool         // any process producing audio
     public var pids: [pid_t]
-    public init(appID: String, running: Bool = true, mic: Bool = false, output: Bool = false, pids: [pid_t] = []) {
+    /// Browser meetings (EM-152): the meeting window's title, the browser's name and bundle prefixes
+    /// (so capture taps only that browser).
+    public var title: String?
+    public var browserName: String?
+    public var bundlePrefixes: [String]
+    public init(appID: String, running: Bool = true, mic: Bool = false, output: Bool = false, pids: [pid_t] = [],
+                title: String? = nil, browserName: String? = nil, bundlePrefixes: [String] = []) {
         self.appID = appID; self.running = running; self.mic = mic; self.output = output; self.pids = pids
+        self.title = title; self.browserName = browserName; self.bundlePrefixes = bundlePrefixes
     }
 }
 
@@ -39,12 +46,15 @@ public final class AudioActivityMonitor: @unchecked Sendable {
     public let snapshots: AsyncStream<ActivitySnapshot>
     private let continuation: AsyncStream<ActivitySnapshot>.Continuation
     private let rules: RuleSet
+    private let titles: WindowTitleSource
+    private var browserTracker = BrowserMeetingTracker()          // queue-confined
     private let queue = DispatchQueue(label: "echominutes.detection.monitor", qos: .utility)
     private var timer: DispatchSourceTimer?
     private var listener: AudioObjectPropertyListenerBlock?
 
-    public init(rules: RuleSet) {
+    public init(rules: RuleSet, titles: WindowTitleSource = SystemWindowTitles()) {
         self.rules = rules
+        self.titles = titles
         (snapshots, continuation) = AsyncStream.makeStream(of: ActivitySnapshot.self, bufferingPolicy: .bufferingNewest(4))
     }
 
@@ -78,6 +88,11 @@ public final class AudioActivityMonitor: @unchecked Sendable {
     }
 
     private func poll() {
-        continuation.yield(ActivityAggregator.aggregate(AudioProcesses.current(), rules: rules))
+        let processes = AudioProcesses.current()
+        var snap = ActivityAggregator.aggregate(processes, rules: rules)
+        if rules.browserDetection {
+            for (id, a) in browserTracker.update(processes: processes, rules: rules, now: Date(), titles: titles) { snap[id] = a }
+        }
+        continuation.yield(snap)
     }
 }

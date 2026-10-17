@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "status": "draft — from Sprint 0 spikes (EM-004..006); debounce/grace provisional until EM-007 background logging is analysed",
+  "version": 2,
+  "status": "apps verified in Sprint 0 spikes (EM-004..006) and tuned in EM-077; browser meetings added in Sprint 14 (EM-150..157)",
   "pollIntervalMs": 1000,
   "ignoreBundlePrefixes": ["com.apple.CoreSpeech"],
   "apps": [
@@ -27,10 +27,27 @@
     { "id": "webex", "name": "Webex", "bundlePrefixes": ["Cisco-Systems.Spark"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15, "notes": "Unverified" }
   ],
   "browsers": [
-    {
-      "bundlePrefixes": ["com.google.Chrome", "com.apple.Safari", "com.apple.WebKit", "com.microsoft.edgemac", "company.thebrowser.Browser", "com.brave.Browser", "org.mozilla.firefox"],
-      "titlePatterns": ["^Meet - ", "meet\\.google\\.com", "\\| Microsoft Teams", "Zoom Meeting"],
-      "notes": "Phase 2. Chrome audio runs in com.google.Chrome.helper; output held for a while after pause; delivers no frames when silent."
-    }
+    { "id": "chrome", "name": "Google Chrome", "bundlePrefixes": ["com.google.Chrome"],
+      "notes": "Audio in com.google.Chrome.helper (owning app com.google.Chrome); output held a while after pause; no frames when silent." },
+    { "id": "safari", "name": "Safari", "bundlePrefixes": ["com.apple.Safari", "com.apple.WebKit"],
+      "notes": "Audio runs in the shared com.apple.WebKit.GPU process (outside Safari.app)." },
+    { "id": "edge", "name": "Microsoft Edge", "bundlePrefixes": ["com.microsoft.edgemac"] },
+    { "id": "arc", "name": "Arc", "bundlePrefixes": ["company.thebrowser.Browser"] },
+    { "id": "brave", "name": "Brave", "bundlePrefixes": ["com.brave.Browser"] },
+    { "id": "firefox", "name": "Firefox", "bundlePrefixes": ["org.mozilla.firefox"] }
+  ],
+  "webMeetings": [
+    { "id": "meet", "name": "Google Meet",
+      "titlePatterns": ["^Meet\\s*[-–—:]", "meet\\.google\\.com", "Google Meet"],
+      "stripPatterns": ["^Meet\\s*[-–—:]\\s*", "\\b[a-z]{3}-[a-z]{4}-[a-z]{3}\\b", "Google Meet"],
+      "debounceSec": 5, "graceSec": 20 },
+    { "id": "teams-web", "name": "Microsoft Teams (web)",
+      "titlePatterns": ["\\|\\s*Microsoft Teams", "teams\\.microsoft\\.com", "teams\\.live\\.com"],
+      "stripPatterns": ["\\|\\s*Microsoft Teams.*$", "^\\(\\d+\\)\\s*"],
+      "debounceSec": 5, "graceSec": 20 },
+    { "id": "zoom-web", "name": "Zoom (web)",
+      "titlePatterns": ["Zoom Meeting", "Zoom Workplace", "app\\.zoom\\.us", "zoom\\.us/wc"],
+      "stripPatterns": ["Zoom Meeting", "Zoom Workplace", "\\s*[-–—|]\\s*Zoom\\s*$"],
+      "debounceSec": 5, "graceSec": 20 }
   ]
 }

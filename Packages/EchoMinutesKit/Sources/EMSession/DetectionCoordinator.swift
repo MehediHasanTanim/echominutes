@@ -5,6 +5,12 @@ import Foundation
 /// Performs detection effects. Sprint 5: logging only; Sprint 6 (EM-070) plugs in real recording + notifications.
 public protocol DetectionEffectHandler: Sendable {
     func perform(_ effect: DetectionEffect) async
+    /// Same, with the activity snapshot that caused it (browser meetings need the browser + tab title).
+    func perform(_ effect: DetectionEffect, snapshot: ActivitySnapshot) async
+}
+
+extension DetectionEffectHandler {
+    public func perform(_ effect: DetectionEffect, snapshot: ActivitySnapshot) async { await perform(effect) }
 }
 
 public struct LoggingEffectHandler: DetectionEffectHandler {
@@ -61,7 +67,7 @@ public actor DetectionCoordinator {
         for d in fresh {
             Log.info(.detection, "\(d.reason.rawValue) app=\(d.appID ?? "-")\(d.detail.map { " (\($0))" } ?? "")")
         }
-        for e in effects { await handler.perform(e) }
+        for e in effects { await handler.perform(e, snapshot: lastSnapshot) }
         continuation.yield(Update(phase: machine.phase, snapshot: lastSnapshot, newDecisions: fresh))
     }
 }

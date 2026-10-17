@@ -86,11 +86,13 @@ public struct TranscribeJobHandler: JobHandler {
                 }
             }
             segments.sort { ($0.startMs, $0.track.rawValue) < ($1.startMs, $1.track.rawValue) }
-            let deduped = EchoDeduplicator.dedupe(segments)
-            if !deduped.removed.isEmpty {
-                Log.info(.stt, "Echo: removed \(deduped.removed.count) mic segment(s) that repeated the call audio")
+            if RecordingPreferences.echoDedup {   // Settings ▸ Recording
+                let deduped = EchoDeduplicator.dedupe(segments)
+                if !deduped.removed.isEmpty {
+                    Log.info(.stt, "Echo: removed \(deduped.removed.count) mic segment(s) that repeated the call audio")
+                }
+                segments = deduped.segments
             }
-            segments = deduped.segments
 
             // 3. Who is who on the call (Speaker 1…N); falls back to a single "Others".
             var speakers = [me]

@@ -256,7 +256,7 @@ final class TrackWriter {
         AVFormatIDKey: kAudioFormatMPEG4AAC,
         AVSampleRateKey: ChunkWriter.outputRate,
         AVNumberOfChannelsKey: 1,
-        AVEncoderBitRateKey: 64_000,
+        AVEncoderBitRateKey: RecordingPreferences.bitRate,
     ] }
 
     init(track: TrackKind, sessionDir: URL, chunkFrames: Int) throws {

@@ -74,7 +74,10 @@ public final class AggregateCapture: @unchecked Sendable {
         var subDevices: [[String: Any]] = [[kAudioSubDeviceUIDKey: outUID]]
         var summary = "clock: \(CA.string(outID, kAudioObjectPropertyName) ?? outUID)"
         if includesMic {
-            let inID = CA.defaultDevice(kAudioHardwarePropertyDefaultInputDevice)
+            // Chosen mic (Settings ▸ Recording); falls back to the system default if it's unplugged.
+            let chosen = RecordingPreferences.micDeviceUID.flatMap { AudioDevices.inputDevice(uid: $0) }
+            if RecordingPreferences.micDeviceUID != nil, chosen == nil { Log.info(.audio, "Chosen microphone not connected — using system default") }
+            let inID = chosen ?? CA.defaultDevice(kAudioHardwarePropertyDefaultInputDevice)
             guard let inUID = CA.string(inID, kAudioDevicePropertyDeviceUID) else { throw AudioCaptureError.noDevice("microphone") }
             if inUID != outUID { subDevices.append([kAudioSubDeviceUIDKey: inUID, kAudioSubDeviceDriftCompensationKey: true]) }
             summary += ", mic: \(CA.string(inID, kAudioObjectPropertyName) ?? inUID) @ \(Int(CA.nominalRate(inID))) Hz"

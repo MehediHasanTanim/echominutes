@@ -24,7 +24,11 @@ public struct TranscribeJobHandler: JobHandler {
             throw JobFailure.permanent("Session not found")
         }
         let cfg = settings()
-        let engine = engine(cfg.model)
+        // Per-app engine (EM-166); "Local only" apps never leave the Mac (EM-167).
+        let localOnly = session.sourceAppID.flatMap { ((try? SettingsRepository(db).rules()) ?? [:])[$0]?.localOnly } ?? false
+        let choice = cfg.engine(forApp: session.sourceAppID, localOnly: localOnly)
+        let engine = engine(cfg.engineKey(choice))
+        if choice.isCloud { Log.info(.stt, "Transcribing \(sid) with \(choice.displayName) (cloud)") }
         let sessions = SessionRepository(db)
         let previous = session.status
         try sessions.setStatus(sid, .transcribing)
@@ -35,7 +39,7 @@ public struct TranscribeJobHandler: JobHandler {
                 switch status {
                 case .downloading(let f): progress(0, String(format: "Downloading speech model… %.0f%%", f * 100))
                 case .loading: progress(0, "Optimizing speech model for this Mac (first time only)…")
-                case .ready: progress(0, "Transcribing…")
+                case .ready: progress(0, choice.isCloud ? "Sending to \(choice.displayName)…" : "Transcribing…")
                 }
             }
 
@@ -72,7 +76,7 @@ public struct TranscribeJobHandler: JobHandler {
                 let span = sttShare / Double(tracks.count)
                 let samples = try AudioLoader.load16kMono(url)
                 if kind == .system { systemSamples = samples }
-                let out = try await transcriber.transcribe(samples: samples, options: options) { p in
+                let out = try await transcriber.transcribe(url: url, samples: samples, options: options) { p in
                     let f = (Double(i) + p) * span
                     progress(f, String(format: "Transcribing %@… %.0f%%", label, f * 100))
                 }
@@ -141,6 +145,9 @@ public struct TranscribeJobHandler: JobHandler {
             if Task.isCancelled || (error as? TranscriptionError) == .cancelled { throw CancellationError() }
             if case TranscriptionError.audioUnreadable(let f)? = error as? TranscriptionError {
                 throw JobFailure.permanent("Couldn't read \(f)")
+            }
+            if case TranscriptionError.cloudRejected(let m)? = error as? TranscriptionError {
+                throw JobFailure.permanent(m)
             }
             throw error
         }

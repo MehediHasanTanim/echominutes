@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "status": "apps verified in Sprint 0 spikes (EM-004..006) and tuned in EM-077; browser meetings added in Sprint 14 (EM-150..157)",
   "pollIntervalMs": 1000,
   "ignoreBundlePrefixes": ["com.apple.CoreSpeech"],
@@ -22,9 +22,12 @@
       "startSignal": "mic", "debounceSec": 8, "graceSec": 15,
       "notes": "Includes net.whatsapp.WhatsApp.ServiceExtension (call process). Longer debounce to skip voice notes."
     },
-    { "id": "slack", "name": "Slack", "bundlePrefixes": ["com.tinyspeck.slackmacgap"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15, "notes": "Unverified" },
-    { "id": "facetime", "name": "FaceTime", "bundlePrefixes": ["com.apple.FaceTime"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15, "notes": "Unverified" },
-    { "id": "webex", "name": "Webex", "bundlePrefixes": ["Cisco-Systems.Spark"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15, "notes": "Unverified" }
+    { "id": "slack", "name": "Slack", "bundlePrefixes": ["com.tinyspeck.slackmacgap"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15,
+      "notes": "Huddles and calls run in Slack Helper processes (owning app com.tinyspeck.slackmacgap). Notification sounds use output only, never the mic. To verify (EM-160)." },
+    { "id": "facetime", "name": "FaceTime", "bundlePrefixes": ["com.apple.FaceTime", "com.apple.avconferenced"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15,
+      "notes": "Call audio runs in the avconferenced daemon, not FaceTime.app; also iPhone calls relayed to the Mac. Ringing has no mic. To verify (EM-160)." },
+    { "id": "webex", "name": "Webex", "bundlePrefixes": ["Cisco-Systems.Spark", "com.cisco.webexmeetingsapp", "com.webex.meetingmanager"], "startSignal": "mic", "debounceSec": 5, "graceSec": 15,
+      "notes": "Webex app (Cisco-Systems.Spark) and older Webex Meetings. To verify (EM-160)." }
   ],
   "browsers": [
     { "id": "chrome", "name": "Google Chrome", "bundlePrefixes": ["com.google.Chrome"],

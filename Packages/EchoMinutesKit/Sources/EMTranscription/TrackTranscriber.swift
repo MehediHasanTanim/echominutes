@@ -19,6 +19,29 @@ public struct TrackTranscriber: Sendable {
         return try await transcribe(samples: samples, options: options, progress: progress)
     }
 
+    /// Whole-track cloud engines get the file (EM-162); local engines go region by region.
+    public func transcribe(url: URL, samples: [Float], options: STTOptions,
+                           progress: @escaping @Sendable (Double) -> Void) async throws -> Output {
+        guard let cloud = engine as? WholeTrackTranscriptionEngine else {
+            return try await transcribe(samples: samples, options: options, progress: progress)
+        }
+        let rate = AudioLoader.sampleRate
+        let audioSeconds = Double(samples.count) / rate
+        // Nothing but silence: don't upload (and don't pay for) it.
+        let regions = SpeechRegionDetector.detect(samples, rate: rate)
+        guard !regions.isEmpty else { return Output(segments: [], dropped: 0, speechSeconds: 0, audioSeconds: audioSeconds) }
+        let raw = try await cloud.transcribeTrack(url: url, samples: samples, options: options, progress: progress)
+            .map { s -> RawSegment in
+                var x = s
+                x.text = s.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                x.end = min(max(x.end, x.start), audioSeconds)
+                return x
+            }
+        let guarded = HallucinationGuard.filter(raw)
+        return Output(segments: guarded.kept, dropped: guarded.dropped.count,
+                      speechSeconds: Double(regions.reduce(0) { $0 + ($1.end - $1.start) }) / rate, audioSeconds: audioSeconds)
+    }
+
     public func transcribe(samples: [Float], options: STTOptions, progress: @escaping @Sendable (Double) -> Void) async throws -> Output {
         let rate = AudioLoader.sampleRate
         let regions = SpeechRegionDetector.detect(samples, rate: rate)

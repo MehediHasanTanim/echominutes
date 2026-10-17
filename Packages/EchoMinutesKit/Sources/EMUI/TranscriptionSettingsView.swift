@@ -25,6 +25,7 @@ struct TranscriptionSettingsView: View {
                 Text("Runs on this Mac with Whisper — audio never leaves your computer. On battery below 20 % or in Low Power Mode it waits until you're plugged in (or use “Transcribe now”).")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            TranscriptionEngineSection()
             Section("Language") {
                 Picker("Spoken language", selection: $language) {
                     ForEach(TranscriptionPreferences.languages, id: \.code) { Text($0.name).tag($0.code) }

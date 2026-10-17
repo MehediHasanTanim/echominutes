@@ -14,11 +14,33 @@ public struct TranscriptionSettings: Sendable, Equatable {
     public var identifySpeakers: Bool
     /// Shown instead of "Me" (Settings ▸ General).
     public var myName: String
+    /// Default engine, and per-app choices that override it (EM-166).
+    public var engine: STTEngineChoice
+    public var appEngines: [String: STTEngineChoice]
+    /// OpenAI transcription model ("whisper-1" gives timestamps per sentence).
+    public var openAIModel: String
 
     public init(model: String = STTModelCatalog.defaultVariant, language: String = "en", vocabulary: [String] = [],
-                autoTranscribe: Bool = true, identifySpeakers: Bool = true, myName: String = "") {
+                autoTranscribe: Bool = true, identifySpeakers: Bool = true, myName: String = "",
+                engine: STTEngineChoice = .local, appEngines: [String: STTEngineChoice] = [:], openAIModel: String = "whisper-1") {
         self.model = model; self.language = language; self.vocabulary = vocabulary; self.autoTranscribe = autoTranscribe
         self.identifySpeakers = identifySpeakers; self.myName = myName
+        self.engine = engine; self.appEngines = appEngines; self.openAIModel = openAIModel
+    }
+
+    /// The engine for a meeting of `appID`. "Local only" apps never leave the Mac (EM-167).
+    public func engine(forApp appID: String?, localOnly: Bool) -> STTEngineChoice {
+        if localOnly { return .local }
+        return appID.flatMap { appEngines[$0] } ?? engine
+    }
+
+    /// Key passed to the engine provider: the Whisper model for local, else the cloud engine (+ model).
+    public func engineKey(_ choice: STTEngineChoice) -> String {
+        switch choice {
+        case .local: model
+        case .openAI: "openai:\(openAIModel)"
+        case .deepgram, .assemblyAI: choice.rawValue
+        }
     }
 }
 
@@ -70,12 +92,17 @@ public enum TranscriptionError: Error, LocalizedError, Sendable, Equatable {
     case modelUnavailable(String)
     case audioUnreadable(String)
     case cancelled
+    /// Cloud engine refused the request (missing / wrong key, unsupported language…) — retrying won't help.
+    case cloudRejected(String)
+    /// Cloud engine unreachable or failing — worth retrying later.
+    case cloudFailed(String)
 
     public var errorDescription: String? {
         switch self {
         case .modelUnavailable(let m): "Transcription model unavailable: \(m)"
         case .audioUnreadable(let f): "Couldn't read audio \(f)"
         case .cancelled: "Transcription cancelled"
+        case .cloudRejected(let m), .cloudFailed(let m): m
         }
     }
 }

@@ -13,6 +13,24 @@ public enum TranscriptionPreferences {
     public static let autoKey = "stt.auto"
     public static let speakersKey = "stt.identifySpeakers"
     public static let myNameKey = "myName"
+    public static let engineKey = "stt.engine"
+    public static let appEnginesKey = "stt.appEngines"          // [appID: engine raw value]
+    public static let openAIModelKey = "stt.openaiModel"
+    public static let cloudConsentKey = "stt.cloudConsent"
+
+    /// Per-app engine choices (absent = use the default).
+    public static var appEngines: [String: STTEngineChoice] {
+        get {
+            let raw = UserDefaults.standard.dictionary(forKey: appEnginesKey) as? [String: String] ?? [:]
+            return raw.compactMapValues { STTEngineChoice(rawValue: $0) }
+        }
+        set { UserDefaults.standard.set(newValue.mapValues(\.rawValue), forKey: appEnginesKey) }
+    }
+
+    /// API key for a cloud engine (Keychain), nil when missing.
+    public static func apiKey(_ choice: STTEngineChoice) -> String? {
+        choice.keychainAccount.flatMap { (try? KeychainStore().get(account: $0)) ?? nil }
+    }
 
     public static var current: TranscriptionSettings {
         let d = UserDefaults.standard
@@ -24,7 +42,10 @@ public enum TranscriptionPreferences {
                                      vocabulary: vocab,
                                      autoTranscribe: d.object(forKey: autoKey) as? Bool ?? true,
                                      identifySpeakers: d.object(forKey: speakersKey) as? Bool ?? true,
-                                     myName: d.string(forKey: myNameKey) ?? "")
+                                     myName: d.string(forKey: myNameKey) ?? "",
+                                     engine: d.string(forKey: engineKey).flatMap(STTEngineChoice.init(rawValue:)) ?? .local,
+                                     appEngines: appEngines,
+                                     openAIModel: d.string(forKey: openAIModelKey) ?? "whisper-1")
     }
 
     public static let languages: [(code: String, name: String)] = [
@@ -40,8 +61,20 @@ final class EngineCache: @unchecked Sendable {
     let models: STTModelManager
     init(models: STTModelManager) { self.models = models }
 
-    func engine(_ variant: String) -> TranscriptionEngine {
-        lock.withLock {
+    /// `key` from `TranscriptionSettings.engineKey`: a Whisper model, "deepgram", "assemblyai" or "openai:<model>".
+    func engine(_ key: String) -> TranscriptionEngine {
+        if key == STTEngineChoice.deepgram.rawValue {
+            return DeepgramEngine(apiKey: { TranscriptionPreferences.apiKey(.deepgram) })
+        }
+        if key == STTEngineChoice.assemblyAI.rawValue {
+            return AssemblyAIEngine(apiKey: { TranscriptionPreferences.apiKey(.assemblyAI) })
+        }
+        if key.hasPrefix("openai:") {
+            return OpenAITranscriptionEngine(model: String(key.dropFirst("openai:".count)),
+                                             apiKey: { TranscriptionPreferences.apiKey(.openAI) })
+        }
+        let variant = key
+        return lock.withLock {
             if let e = engines[variant] { return e }
             let e = WhisperKitEngine(variant: variant, models: models)
             engines[variant] = e

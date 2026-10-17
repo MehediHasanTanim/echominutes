@@ -57,6 +57,9 @@ public enum SessionGrouping {
         case "whatsapp": "phone.fill"
         case "manual": "mic.fill"
         case "meet", "teams-web", "zoom-web", "browser": "globe"
+        case "slack": "number"
+        case "facetime": "video.circle.fill"
+        case "webex": "video.bubble.fill"
         default: "waveform"
         }
     }

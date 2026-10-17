@@ -13,22 +13,34 @@ public struct KeychainStore: Sendable {
     public enum KeychainError: Error, Equatable, Sendable { case unexpectedStatus(OSStatus), invalidData }
 
     public func set(_ key: String, for provider: ProviderID) throws {
+        try set(key, account: provider.rawValue, label: provider.displayName)
+    }
+
+    public func get(_ provider: ProviderID) throws -> String? { try get(account: provider.rawValue) }
+
+    public func delete(_ provider: ProviderID) throws { try delete(account: provider.rawValue) }
+
+    public func hasKey(_ provider: ProviderID) -> Bool { ((try? get(provider)) ?? nil) != nil }
+
+    // MARK: Any account (cloud transcription keys, EM-162)
+
+    public func set(_ key: String, account: String, label: String) throws {
         let data = Data(key.utf8)
-        let query = baseQuery(provider)
+        let query = baseQuery(account)
         let update: [String: Any] = [kSecValueData as String: data]
         var status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
         if status == errSecItemNotFound {
             var add = query
             add[kSecValueData as String] = data
             add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            add[kSecAttrLabel as String] = "EchoMinutes – \(provider.displayName) API key"
+            add[kSecAttrLabel as String] = "EchoMinutes – \(label) API key"
             status = SecItemAdd(add as CFDictionary, nil)
         }
         guard status == errSecSuccess else { throw KeychainError.unexpectedStatus(status) }
     }
 
-    public func get(_ provider: ProviderID) throws -> String? {
-        var q = baseQuery(provider)
+    public func get(account: String) throws -> String? {
+        var q = baseQuery(account)
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var item: CFTypeRef?
@@ -39,16 +51,14 @@ public struct KeychainStore: Sendable {
         return s
     }
 
-    public func delete(_ provider: ProviderID) throws {
-        let status = SecItemDelete(baseQuery(provider) as CFDictionary)
+    public func delete(account: String) throws {
+        let status = SecItemDelete(baseQuery(account) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw KeychainError.unexpectedStatus(status) }
     }
 
-    public func hasKey(_ provider: ProviderID) -> Bool { ((try? get(provider)) ?? nil) != nil }
-
-    private func baseQuery(_ provider: ProviderID) -> [String: Any] {
+    private func baseQuery(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: service,
-         kSecAttrAccount as String: provider.rawValue]
+         kSecAttrAccount as String: account]
     }
 }

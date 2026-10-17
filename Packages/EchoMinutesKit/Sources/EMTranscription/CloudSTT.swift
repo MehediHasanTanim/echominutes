@@ -176,9 +176,10 @@ public struct DeepgramEngine: WholeTrackTranscriptionEngine {
                  URLQueryItem(name: "punctuate", value: "true")]
         if model.hasPrefix("nova-3") { q += options.vocabulary.prefix(100).map { URLQueryItem(name: "keyterm", value: $0) } }
         c.queryItems = q
+        let key = try CloudKey.require(apiKey(), Self.service)
         var r = URLRequest(url: c.url!)
         r.httpMethod = "POST"
-        r.setValue("Token \(try CloudKey.require(apiKey(), Self.service))", forHTTPHeaderField: "Authorization")
+        r.setValue("Token \(key)", forHTTPHeaderField: "Authorization")
         r.setValue(mime, forHTTPHeaderField: "Content-Type")
         return r
     }
@@ -421,9 +422,10 @@ public struct OpenAITranscriptionEngine: WholeTrackTranscriptionEngine {
         if timestamps { m.field("timestamp_granularities[]", "segment") }
         m.file("file", filename: "audio.wav", mime: "audio/wav", data: WAV.encode(samples[...]))
         let body = m.finish()
+        let key = try CloudKey.require(apiKey(), Self.service)
         var r = URLRequest(url: baseURL.appendingPathComponent("audio/transcriptions"))
         r.httpMethod = "POST"
-        r.setValue("Bearer \(try CloudKey.require(apiKey(), Self.service))", forHTTPHeaderField: "Authorization")
+        r.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         r.setValue(m.contentType, forHTTPHeaderField: "Content-Type")
         let data = try await http.send(r, body: .data(body), service: Self.service)
         progress(1)
